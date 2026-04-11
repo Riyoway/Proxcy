@@ -117,6 +117,45 @@ function parseAsn(value: unknown): string | null {
   return firstToken?.startsWith('AS') ? firstToken : trimmed;
 }
 
+function toGeoMetadata(record: Pick<ProxyRecord, 'country_code' | 'country_name' | 'asn' | 'organization'>): GeoMetadata {
+  return {
+    country_code: record.country_code,
+    country_name: record.country_name,
+    asn: record.asn,
+    organization: record.organization,
+  };
+}
+
+async function seedGeoCacheFromSupabase(): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from('proxies')
+      .select('ip,country_code,country_name,asn,organization');
+
+    if (error) {
+      console.warn('Unable to preload geo cache from Supabase:', error.message);
+      return;
+    }
+
+    let restoredCount = 0;
+
+    for (const row of data ?? []) {
+      if (!row?.ip || typeof row.ip !== 'string' || geoCache.has(row.ip)) {
+        continue;
+      }
+
+      geoCache.set(row.ip, toGeoMetadata(row));
+      restoredCount++;
+    }
+
+    if (restoredCount > 0) {
+      console.log(`Reused cached geo data for ${restoredCount} IPs from Supabase.`);
+    }
+  } catch (error) {
+    console.warn('Unexpected error while preloading geo cache from Supabase:', error);
+  }
+}
+
 async function wait(ms: number): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -187,6 +226,8 @@ async function fetchGeoMetadata(ip: string): Promise<GeoLookupResult> {
 
 async function enrichProxyMetadata(records: ProxyRecord[]): Promise<ProxyRecord[]> {
   const missingIps = Array.from(new Set(records.map(record => record.ip))).filter(ip => !geoCache.has(ip));
+  let unavailableCount = 0;
+  let retryFailureCount = 0;
 
   if (missingIps.length > 0) {
     console.log(`Enriching ${missingIps.length} IPs with geo metadata...`);
@@ -198,7 +239,7 @@ async function enrichProxyMetadata(records: ProxyRecord[]): Promise<ProxyRecord[
     if (firstAttempt.status === 'success') {
       geoCache.set(ip, firstAttempt.metadata ?? emptyGeoMetadata());
     } else if (firstAttempt.status === 'not_found') {
-      console.warn(`Geo metadata unavailable for ${ip}: ${firstAttempt.message ?? 'Unknown reason'}`);
+      unavailableCount++;
       geoCache.set(ip, emptyGeoMetadata());
     } else {
       const retryDelay = firstAttempt.retryAfterMs ?? GEO_LOOKUP_DELAY_MS * 2;
@@ -210,14 +251,24 @@ async function enrichProxyMetadata(records: ProxyRecord[]): Promise<ProxyRecord[
       if (secondAttempt.status === 'success') {
         geoCache.set(ip, secondAttempt.metadata ?? emptyGeoMetadata());
       } else if (secondAttempt.status === 'not_found') {
-        console.warn(`Geo metadata unavailable for ${ip} after retry: ${secondAttempt.message ?? 'Unknown reason'}`);
+        unavailableCount++;
         geoCache.set(ip, emptyGeoMetadata());
       } else {
+        retryFailureCount++;
         console.warn(`Geo metadata lookup skipped for ${ip} after retry failure: ${secondAttempt.message ?? 'Unknown error'}`);
+        geoCache.set(ip, emptyGeoMetadata());
       }
     }
 
     await wait(GEO_LOOKUP_DELAY_MS);
+  }
+
+  if (unavailableCount > 0) {
+    console.log(`Geo metadata unavailable for ${unavailableCount} IPs.`);
+  }
+
+  if (retryFailureCount > 0) {
+    console.log(`Geo metadata skipped for ${retryFailureCount} IPs after retry failures.`);
   }
 
   return records.map(record => ({
@@ -334,6 +385,8 @@ async function runCycle() {
   const cycleStartTime = new Date().toISOString();
   console.log(`\n=== Starting new proxy check cycle at ${new Date().toLocaleString()} ===`);
 
+  await seedGeoCacheFromSupabase();
+
   console.log("Downloading proxy lists...");
   const rawProxies = await downloadProxies();
   console.log(`Downloaded ${rawProxies.length} unique proxies.`);
@@ -345,20 +398,44 @@ async function runCycle() {
   console.log(`Starting proxy checks with concurrency: ${CONCURRENCY}`);
 
   const validProxies: ProxyRecord[] = [];
+  const liveUploadBuffer: ProxyRecord[] = [];
+  let uploadQueue = Promise.resolve();
 
-  const uploadBatch = async (chunk: ProxyRecord[]) => {
+  const uploadBatch = async (chunk: ProxyRecord[], phase: 'live' | 'geo') => {
     try {
       const uniqueChunk = Array.from(new Map(chunk.map(item => [item.id, item])).values());
+
+      if (uniqueChunk.length === 0) {
+        return;
+      }
+
       const { error } = await supabase
         .from('proxies')
         .upsert(uniqueChunk, { onConflict: 'id' });
 
       if (error) {
-        console.error("Error upserting batch to Supabase:", error);
+        console.error(`Error upserting ${phase} batch to Supabase:`, error);
       }
     } catch (err) {
-      console.error("Unexpected error upserting batch:", err);
+      console.error(`Unexpected error upserting ${phase} batch:`, err);
     }
+  };
+
+  const queueUpload = (chunk: ProxyRecord[], phase: 'live' | 'geo') => {
+    if (chunk.length === 0) {
+      return;
+    }
+
+    uploadQueue = uploadQueue.then(() => uploadBatch(chunk, phase));
+  };
+
+  const flushLiveUploadBuffer = (force = false) => {
+    if (!force && liveUploadBuffer.length < UPLOAD_BATCH_SIZE) {
+      return;
+    }
+
+    const chunk = liveUploadBuffer.splice(0, liveUploadBuffer.length);
+    queueUpload(chunk, 'live');
   };
 
   const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
@@ -386,19 +463,17 @@ async function runCycle() {
     if (result && result.is_valid) {
       validCount++;
       validProxies.push(result);
+      liveUploadBuffer.push(result);
+      flushLiveUploadBuffer();
     }
   }));
 
   await Promise.all(tasks);
 
-  const uniqueValidProxies = Array.from(new Map(validProxies.map(item => [item.id, item])).values());
-  const enrichedValidProxies = await enrichProxyMetadata(uniqueValidProxies);
+  flushLiveUploadBuffer(true);
+  await uploadQueue;
 
-  for (let index = 0; index < enrichedValidProxies.length; index += UPLOAD_BATCH_SIZE) {
-    await uploadBatch(enrichedValidProxies.slice(index, index + UPLOAD_BATCH_SIZE));
-  }
-
-  console.log(`Upload complete. Total valid proxies found: ${validCount}`);
+  console.log(`Initial upload complete. Uploaded ${validCount} valid proxies to Supabase before geo enrichment.`);
 
   console.log("Cleaning up old proxies that didn't pass this check...");
   const { error: delError } = await supabase
@@ -411,6 +486,15 @@ async function runCycle() {
   } else {
     console.log("Cleanup complete. Removed invalid/dead proxies successfully.");
   }
+
+  const uniqueValidProxies = Array.from(new Map(validProxies.map(item => [item.id, item])).values());
+  const enrichedValidProxies = await enrichProxyMetadata(uniqueValidProxies);
+
+  for (let index = 0; index < enrichedValidProxies.length; index += UPLOAD_BATCH_SIZE) {
+    await uploadBatch(enrichedValidProxies.slice(index, index + UPLOAD_BATCH_SIZE), 'geo');
+  }
+
+  console.log(`Geo enrichment upload complete. Total valid proxies found: ${validCount}`);
 }
 
 async function main() {
