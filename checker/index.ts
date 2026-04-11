@@ -356,26 +356,30 @@ async function testProxy(proxyStr: string): Promise<ProxyRecord | null> {
   let speedMs = 0;
 
   try {
-    const res = await axios.get(TEST_URL, createProxyRequestConfig(agent));
-
-    if (res.status === 200) {
-      isValid = true;
-      speedMs = Date.now() - startTime;
-    }
-  } catch {
-    return null; // Immediately return null if the first check fails
-  }
-
-  // Only check google if the first test passed
-  if (isValid) {
     try {
-      const gRes = await axios.get(GOOGLE_TEST_URL, createProxyRequestConfig(agent));
-      if (gRes.status === 204) {
-        isGoogle = true;
+      const res = await axios.get(TEST_URL, createProxyRequestConfig(agent));
+
+      if (res.status === 200) {
+        isValid = true;
+        speedMs = Date.now() - startTime;
       }
     } catch {
-      // Ignore google fail
+      return null; // Immediately return null if the first check fails
     }
+
+    // Only check google if the first test passed
+    if (isValid) {
+      try {
+        const gRes = await axios.get(GOOGLE_TEST_URL, createProxyRequestConfig(agent));
+        if (gRes.status === 204) {
+          isGoogle = true;
+        }
+      } catch {
+        // Ignore google fail
+      }
+    }
+  } finally {
+    agent.destroy();
   }
 
   return {
