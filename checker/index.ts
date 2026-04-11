@@ -126,6 +126,19 @@ function toGeoMetadata(record: Pick<ProxyRecord, 'country_code' | 'country_name'
   };
 }
 
+function applyCachedGeoMetadata(record: ProxyRecord): ProxyRecord {
+  const cachedMetadata = geoCache.get(record.ip);
+
+  if (!cachedMetadata) {
+    return record;
+  }
+
+  return {
+    ...record,
+    ...cachedMetadata,
+  };
+}
+
 async function seedGeoCacheFromSupabase(): Promise<void> {
   try {
     const { data, error } = await supabase
@@ -461,9 +474,10 @@ async function runCycle() {
     }
 
     if (result && result.is_valid) {
+      const liveRecord = applyCachedGeoMetadata(result);
       validCount++;
-      validProxies.push(result);
-      liveUploadBuffer.push(result);
+      validProxies.push(liveRecord);
+      liveUploadBuffer.push(liveRecord);
       flushLiveUploadBuffer();
     }
   }));
