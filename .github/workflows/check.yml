@@ -17,7 +17,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./checker
-        run: npm install
+        run: npm ci
 
       - name: Run Proxy Checker
         working-directory: ./checker
