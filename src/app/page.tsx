@@ -55,11 +55,13 @@ interface ProxyRecord {
   country_name: string | null;
   asn: string | null;
   organization: string | null;
+  geo_status: "resolving" | "resolved" | "unavailable";
   checked_at: string;
 }
 
 type SortField = "ip" | "port" | "country_name" | "protocol" | "speed_ms" | "checked_at";
 type SortDirection = "asc" | "desc";
+type GeoVisibilityMode = "resolved_only" | "include_unresolved";
 const emojiFontFamily = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif';
 
 function getCountryFlagEmoji(countryCode: string | null): string {
@@ -178,6 +180,7 @@ const ProxyDashboard: React.FC = () => {
   const [pageSize] = useState(15);
   const [protocolFilters, setProtocolFilters] = useState<Set<string>>(new Set());
   const [googleAccessFilter, setGoogleAccessFilter] = useState<"all" | "yes" | "no">("all");
+  const [geoVisibilityMode, setGeoVisibilityMode] = useState<GeoVisibilityMode>("include_unresolved");
 
   const fetchProxies = useCallback(async () => {
     setIsLoading(true);
@@ -235,8 +238,9 @@ const ProxyDashboard: React.FC = () => {
       const protocolUpper = item.protocol.toUpperCase();
       const matchesProtocol = protocolFilters.size === 0 || protocolFilters.has(protocolUpper);
       const matchesGoogle = googleAccessFilter === "all" || (googleAccessFilter === "yes" && item.is_google) || (googleAccessFilter === "no" && !item.is_google);
+      const matchesGeoVisibility = geoVisibilityMode === "include_unresolved" || item.geo_status === "resolved";
 
-      return matchesSearch && matchesProtocol && matchesGoogle;
+      return matchesSearch && matchesProtocol && matchesGoogle && matchesGeoVisibility;
     });
 
     filtered.sort((a, b) => {
@@ -267,7 +271,7 @@ const ProxyDashboard: React.FC = () => {
     });
 
     return filtered;
-  }, [data, searchQuery, sortField, sortDirection, protocolFilters, googleAccessFilter]);
+  }, [data, searchQuery, sortField, sortDirection, protocolFilters, googleAccessFilter, geoVisibilityMode]);
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
@@ -322,11 +326,12 @@ const ProxyDashboard: React.FC = () => {
   const clearFilters = useCallback(() => {
     setProtocolFilters(new Set());
     setGoogleAccessFilter("all");
+    setGeoVisibilityMode("include_unresolved");
     setSearchQuery("");
     setCurrentPage(1);
   }, []);
 
-  const hasActiveFilters = protocolFilters.size > 0 || googleAccessFilter !== "all" || searchQuery !== "";
+  const hasActiveFilters = protocolFilters.size > 0 || googleAccessFilter !== "all" || geoVisibilityMode !== "include_unresolved" || searchQuery !== "";
 
   const SortIcon: React.FC<{ field: SortField }> = ({ field }) => {
     if (sortField !== field) return <ChevronsUpDown className={getSortIconClassName(field)} />;
@@ -344,6 +349,9 @@ const ProxyDashboard: React.FC = () => {
 
   const validCount = data.filter((p) => p.is_valid).length;
   const googleCount = data.filter((p) => p.is_google).length;
+  const geoResolvedCount = data.filter((p) => p.geo_status === "resolved").length;
+  const geoResolvingCount = data.filter((p) => p.geo_status === "resolving").length;
+  const geoUnavailableCount = data.filter((p) => p.geo_status === "unavailable").length;
   const getSortLabelClassName = (field: SortField) => cn("transition-colors group-hover:text-foreground", sortField === field ? "text-foreground underline underline-offset-4 decoration-1" : "text-muted-foreground");
   const getSortIconClassName = (field: SortField) => cn("ml-2 h-3 w-3 transition-opacity", sortField === field ? "opacity-100 text-foreground" : "opacity-45 group-hover:opacity-70");
 
@@ -472,6 +480,20 @@ const ProxyDashboard: React.FC = () => {
                 {filteredAndSortedData.length} visible results
               </Badge>
             </div>
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+              <Badge variant="outline" className="gap-1 border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400">
+                <MapPinned className="h-3 w-3" />
+                Resolved {geoResolvedCount}
+              </Badge>
+              <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-primary">
+                <RefreshCw className={cn("h-3 w-3", geoResolvingCount > 0 && "animate-spin")} />
+                Resolving {geoResolvingCount}
+              </Badge>
+              <Badge variant="outline" className="gap-1 border-border/60 bg-muted/30 text-muted-foreground">
+                <Globe className="h-3 w-3" />
+                Unavailable {geoUnavailableCount}
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent className="pt-4">
             <div className="space-y-4">
@@ -570,6 +592,46 @@ const ProxyDashboard: React.FC = () => {
                         className="text-xs font-medium"
                       >
                         Blocked
+                      </DropdownMenuCheckboxItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[148px]")}>
+                      <MapPinned className="h-3.5 w-3.5" />
+                      Geo Check
+                      {geoVisibilityMode === "resolved_only" && (
+                        <Badge
+                          variant="secondary"
+                          className="ml-1.5 h-4 w-4 rounded-sm p-0 flex items-center justify-center"
+                        >
+                          1
+                        </Badge>
+                      )}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-52"
+                    >
+                      <DropdownMenuCheckboxItem
+                        checked={geoVisibilityMode === "resolved_only"}
+                        onCheckedChange={() => {
+                          setGeoVisibilityMode("resolved_only");
+                          setCurrentPage(1);
+                        }}
+                        className="text-xs font-medium"
+                      >
+                        ON: Show geo-resolved only
+                      </DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem
+                        checked={geoVisibilityMode === "include_unresolved"}
+                        onCheckedChange={() => {
+                          setGeoVisibilityMode("include_unresolved");
+                          setCurrentPage(1);
+                        }}
+                        className="text-xs font-medium"
+                      >
+                        OFF: Include unresolved geo
                       </DropdownMenuCheckboxItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -781,8 +843,12 @@ const ProxyDashboard: React.FC = () => {
                                 )}
 
                                 <div className="min-w-0">
-                                  <div className="text-xs font-medium text-foreground truncate">{proxy.country_code ?? "N/A"}</div>
-                                  <div className="text-[11px] text-muted-foreground truncate">{proxy.country_name ?? "Unknown"}</div>
+                                  <div className="text-xs font-medium text-foreground truncate">
+                                    {proxy.geo_status === "resolving" ? "Resolving..." : proxy.country_code ?? "N/A"}
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground truncate">
+                                    {proxy.geo_status === "resolving" ? "Geo lookup in progress" : proxy.country_name ?? "Unknown"}
+                                  </div>
                                 </div>
                               </div>
                             </TableCell>
@@ -798,8 +864,12 @@ const ProxyDashboard: React.FC = () => {
 
                             <TableCell className="min-w-[220px]">
                               <div className="min-w-0">
-                                <div className="text-xs font-medium text-foreground truncate">{proxy.organization ?? "Unknown network"}</div>
-                                <div className="text-[11px] text-muted-foreground truncate">{proxy.asn ?? "ASN unavailable"}</div>
+                                <div className="text-xs font-medium text-foreground truncate">
+                                  {proxy.geo_status === "resolving" ? "Geo lookup in progress" : proxy.organization ?? "Unknown network"}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground truncate">
+                                  {proxy.geo_status === "resolving" ? "Country and ASN pending" : proxy.asn ?? "ASN unavailable"}
+                                </div>
                               </div>
                             </TableCell>
 

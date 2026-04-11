@@ -34,6 +34,8 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+type GeoStatus = 'resolving' | 'resolved' | 'unavailable';
+
 interface ProxyRecord {
   id: string; // ip:port
   ip: string;
@@ -46,6 +48,7 @@ interface ProxyRecord {
   country_name: string | null;
   asn: string | null;
   organization: string | null;
+  geo_status: GeoStatus;
   checked_at: string;
 }
 
@@ -54,6 +57,10 @@ interface GeoMetadata {
   country_name: string | null;
   asn: string | null;
   organization: string | null;
+}
+
+interface GeoCacheEntry extends GeoMetadata {
+  geo_status: Exclude<GeoStatus, 'resolving'>;
 }
 
 interface GeoLookupResponse {
@@ -88,14 +95,15 @@ type NodeAxiosConfig = NonNullable<Parameters<typeof axios.get>[1]> & {
   httpsAgent?: ProxyAgent;
 };
 
-const geoCache = new Map<string, GeoMetadata>();
+const geoCache = new Map<string, GeoCacheEntry>();
 
-function emptyGeoMetadata(): GeoMetadata {
+function emptyGeoMetadata(): GeoCacheEntry {
   return {
     country_code: null,
     country_name: null,
     asn: null,
     organization: null,
+    geo_status: 'unavailable',
   };
 }
 
@@ -117,12 +125,13 @@ function parseAsn(value: unknown): string | null {
   return firstToken?.startsWith('AS') ? firstToken : trimmed;
 }
 
-function toGeoMetadata(record: Pick<ProxyRecord, 'country_code' | 'country_name' | 'asn' | 'organization'>): GeoMetadata {
+function toGeoMetadata(record: Pick<ProxyRecord, 'country_code' | 'country_name' | 'asn' | 'organization' | 'geo_status'>): GeoCacheEntry {
   return {
     country_code: record.country_code,
     country_name: record.country_name,
     asn: record.asn,
     organization: record.organization,
+    geo_status: record.geo_status === 'resolved' ? 'resolved' : 'unavailable',
   };
 }
 
@@ -143,7 +152,7 @@ async function seedGeoCacheFromSupabase(): Promise<void> {
   try {
     const { data, error } = await supabase
       .from('proxies')
-      .select('ip,country_code,country_name,asn,organization');
+      .select('ip,country_code,country_name,asn,organization,geo_status');
 
     if (error) {
       console.warn('Unable to preload geo cache from Supabase:', error.message);
@@ -250,7 +259,10 @@ async function enrichProxyMetadata(records: ProxyRecord[]): Promise<ProxyRecord[
     const firstAttempt = await fetchGeoMetadata(ip);
 
     if (firstAttempt.status === 'success') {
-      geoCache.set(ip, firstAttempt.metadata ?? emptyGeoMetadata());
+      geoCache.set(ip, {
+        ...(firstAttempt.metadata ?? emptyGeoMetadata()),
+        geo_status: 'resolved',
+      });
     } else if (firstAttempt.status === 'not_found') {
       unavailableCount++;
       geoCache.set(ip, emptyGeoMetadata());
@@ -262,7 +274,10 @@ async function enrichProxyMetadata(records: ProxyRecord[]): Promise<ProxyRecord[
       const secondAttempt = await fetchGeoMetadata(ip);
 
       if (secondAttempt.status === 'success') {
-        geoCache.set(ip, secondAttempt.metadata ?? emptyGeoMetadata());
+        geoCache.set(ip, {
+          ...(secondAttempt.metadata ?? emptyGeoMetadata()),
+          geo_status: 'resolved',
+        });
       } else if (secondAttempt.status === 'not_found') {
         unavailableCount++;
         geoCache.set(ip, emptyGeoMetadata());
@@ -286,7 +301,7 @@ async function enrichProxyMetadata(records: ProxyRecord[]): Promise<ProxyRecord[
 
   return records.map(record => ({
     ...record,
-    ...(geoCache.get(record.ip) ?? emptyGeoMetadata()),
+    ...(geoCache.get(record.ip) ?? {}),
   }));
 }
 
@@ -394,6 +409,7 @@ async function testProxy(proxyStr: string): Promise<ProxyRecord | null> {
     country_name: null,
     asn: null,
     organization: null,
+    geo_status: 'resolving',
     checked_at: new Date().toISOString()
   };
 }
