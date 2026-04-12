@@ -3,7 +3,7 @@ import { SocksProxyAgent } from 'socks-proxy-agent';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import { createClient } from '@supabase/supabase-js';
 import pLimit from 'p-limit';
-import { SOURCES } from './sources';
+import { SOURCES } from './sources.js';
 import { config } from 'dotenv';
 import type { Agent as HttpAgent } from 'http';
 import type { Agent as HttpsAgent } from 'https';
@@ -166,6 +166,10 @@ async function seedGeoCacheFromSupabase(): Promise<void> {
         continue;
       }
 
+      if (row.geo_status !== 'resolved') {
+        continue;
+      }
+
       geoCache.set(row.ip, toGeoMetadata(row));
       restoredCount++;
     }
@@ -312,7 +316,7 @@ async function downloadProxies(): Promise<string[]> {
   const proxySet = new Set<string>();
   const limit = pLimit(10); // Fetch up to 10 sources concurrently
 
-  const tasks = SOURCES.map(url => limit(async () => {
+  const tasks = SOURCES.map((url: string) => limit(async () => {
     try {
       const response = await axios.get(url, { timeout: 10000 });
       const text = response.data;
@@ -430,7 +434,7 @@ async function runCycle() {
 
   console.log(`Starting proxy checks with concurrency: ${CONCURRENCY}`);
 
-  const validProxies: ProxyRecord[] = [];
+  const validProxies = new Map<string, ProxyRecord>();
   const liveUploadBuffer: ProxyRecord[] = [];
   let uploadQueue = Promise.resolve();
 
@@ -495,8 +499,8 @@ async function runCycle() {
 
     if (result && result.is_valid) {
       const liveRecord = applyCachedGeoMetadata(result);
-      validCount++;
-      validProxies.push(liveRecord);
+      validProxies.set(liveRecord.id, liveRecord);
+      validCount = validProxies.size;
       liveUploadBuffer.push(liveRecord);
       flushLiveUploadBuffer();
     }
@@ -507,7 +511,9 @@ async function runCycle() {
   flushLiveUploadBuffer(true);
   await uploadQueue;
 
-  console.log(`Initial upload complete. Uploaded ${validCount} valid proxies to Supabase before geo enrichment.`);
+  const uniqueValidProxies = Array.from(validProxies.values());
+
+  console.log(`Initial upload complete. Uploaded ${uniqueValidProxies.length} unique valid proxies to Supabase before geo enrichment.`);
 
   console.log("Cleaning up old proxies that didn't pass this check...");
   const { error: delError } = await supabase
@@ -521,20 +527,19 @@ async function runCycle() {
     console.log("Cleanup complete. Removed invalid/dead proxies successfully.");
   }
 
-  const uniqueValidProxies = Array.from(new Map(validProxies.map(item => [item.id, item])).values());
   const enrichedValidProxies = await enrichProxyMetadata(uniqueValidProxies);
 
   for (let index = 0; index < enrichedValidProxies.length; index += UPLOAD_BATCH_SIZE) {
     await uploadBatch(enrichedValidProxies.slice(index, index + UPLOAD_BATCH_SIZE), 'geo');
   }
 
-  console.log(`Geo enrichment upload complete. Total valid proxies found: ${validCount}`);
+  console.log(`Geo enrichment upload complete. Total unique valid proxies found: ${enrichedValidProxies.length}`);
 }
 
 async function main() {
   if (!CONTINUOUS_MODE) {
     await runCycle();
-    return;
+    process.exit(0);
   }
 
   while (true) {

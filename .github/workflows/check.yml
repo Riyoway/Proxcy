@@ -19,10 +19,14 @@ jobs:
         working-directory: ./checker
         run: npm ci
 
+      - name: Build checker
+        working-directory: ./checker
+        run: npm run build
+
       - name: Run Proxy Checker
         working-directory: ./checker
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: npx tsx index.ts
+        run: npm run start
