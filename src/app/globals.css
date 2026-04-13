@@ -134,6 +134,37 @@
     animation: ui-entrance 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
 
+  .ui-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(113, 113, 122, 0.72) rgba(24, 24, 27, 0.28);
+  }
+
+  .ui-scrollbar::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar-track {
+    background: rgba(24, 24, 27, 0.28);
+    border-radius: 9999px;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(113, 113, 122, 0.92), rgba(82, 82, 91, 0.92));
+    border: 2px solid rgba(12, 12, 13, 0.95);
+    border-radius: 9999px;
+  }
+
+  .ui-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(161, 161, 170, 0.96), rgba(113, 113, 122, 0.96));
+  }
+
+  .ui-map-pin-ping {
+    animation: ui-map-pin-ping 1.8s ease-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+    will-change: transform, opacity;
+  }
+
   .ui-float {
     animation: ui-float 3.6s ease-in-out infinite;
   }
@@ -173,6 +204,23 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes ui-map-pin-ping {
+  0% {
+    opacity: 0.2;
+    transform: scale(0.9);
+  }
+
+  65% {
+    opacity: 0.5;
+    transform: scale(1.9);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(2.15);
   }
 }
 
@@ -222,6 +270,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .ui-entrance,
+  .ui-map-pin-ping,
   .ui-float,
   .ui-pulse-dot,
   .ui-loading-bar,

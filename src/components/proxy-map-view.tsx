@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import { geoBounds, geoCentroid, geoContains, geoGraticule10, geoMercator, geoPath } from "d3-geo";
 import { select } from "d3-selection";
@@ -169,16 +169,18 @@ function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function getCountryFlagEmoji(countryCode: string | null): string {
-  if (!countryCode || countryCode.length !== 2) {
-    return "🌐";
+function getCountryFlagIconSrc(countryCode: string | null): string | null {
+  if (!countryCode) {
+    return null;
   }
 
-  return countryCode
-    .toUpperCase()
-    .split("")
-    .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
-    .join("");
+  const normalizedCountryCode = countryCode.trim().toLowerCase();
+
+  if (!/^[a-z]{2}$/.test(normalizedCountryCode)) {
+    return null;
+  }
+
+  return `https://flagcdn.com/24x18/${normalizedCountryCode}.png`;
 }
 
 function mixValue(start: number, end: number, amount: number): number {
@@ -1047,10 +1049,7 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
     const translateX = mapWidth / 2 - scale * ((x0 + x1) / 2);
     const translateY = mapHeight / 2 - scale * ((y0 + y1) / 2);
 
-    svg.call(
-      zoomBehaviorRef.current.transform,
-      zoomIdentity.translate(translateX, translateY).scale(scale),
-    );
+    svg.call(zoomBehaviorRef.current.transform, zoomIdentity.translate(translateX, translateY).scale(scale));
   }, [featureByCountryKey, selectedCountry, selectedCountryKey]);
 
   const handleZoom = (scaleFactor: number) => {
@@ -1069,7 +1068,7 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
     select(svgRef.current).call(zoomBehaviorRef.current.transform, zoomIdentity);
   };
 
-  const topCountries = countryStats.slice(0, 8);
+  const topCountries = countryStats;
   const activePoint = hoveredPoint ?? selectedPoint;
 
   return (
@@ -1104,7 +1103,7 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
         </div>
       </CardHeader>
       <CardContent className="pt-3">
-        <div className="grid gap-4 xl:items-start xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="grid gap-4 xl:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="self-start overflow-hidden rounded-2xl border border-zinc-800/90 bg-[#090909] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
             <div className="relative bg-[radial-gradient(circle_at_top,rgba(63,63,70,0.18),transparent_42%),linear-gradient(180deg,rgba(18,18,20,0.98),rgba(8,8,9,1))]">
               <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
@@ -1167,9 +1166,10 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                       />
                     );
                   })}
-                  {renderedPoints.map((point) => {
+                  {renderedPoints.map((point, index) => {
                     const isSelected = selectedPointKey === point.key;
                     const isHovered = hoveredPointKey === point.key;
+                    const pinAnimationDelayMs = `${(index % 18) * 110}ms`;
 
                     return (
                       <g
@@ -1186,13 +1186,15 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                       >
                         <circle
                           r={point.haloRadius}
-                          fill={isSelected ? "rgba(245, 245, 245, 0.14)" : "rgba(161, 161, 170, 0.08)"}
+                          className="ui-map-pin-ping"
+                          fill={isSelected ? "rgba(228, 228, 231, 0.2)" : "rgba(161, 161, 170, 0.16)"}
                           opacity={isHovered || isSelected ? 1 : 0.68}
+                          style={{ animationDelay: pinAnimationDelayMs }}
                         />
                         <circle
                           r={point.radius}
-                          fill={isSelected ? "rgb(245, 245, 245)" : point.level === "record" ? "rgb(212, 212, 216)" : "rgb(161, 161, 170)"}
-                          stroke="rgba(250,250,250,0.86)"
+                          fill={isSelected ? "rgb(228, 228, 231)" : "rgb(161, 161, 170)"}
+                          stroke="rgba(250,250,250,0.82)"
                           strokeWidth={0.9 / Math.max(mapTransform.k, 1)}
                         />
                       </g>
@@ -1223,32 +1225,33 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
             <div className="rounded-2xl border border-zinc-800/90 bg-[#111113] p-4">
               {selectedPoint ? (
                 <>
-                  <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-semibold text-zinc-100">{selectedPoint.label}</div>
                       <div className="mt-1 truncate text-[11px] text-zinc-400">{selectedPoint.countryName} {selectedPoint.countryCode ? `(${selectedPoint.countryCode})` : ""}</div>
                     </div>
-                    <Badge variant="secondary" className="shrink-0 border border-zinc-700/70 bg-zinc-800 text-[11px] font-medium text-zinc-100">
-                      {selectedPoint.level === "record" ? "Proxy" : selectedPoint.level === "subgroup" ? "Subgroup" : selectedPoint.level === "organization" ? "Network" : "Country"}
-                    </Badge>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                      <Badge variant="secondary" className="shrink-0 border border-zinc-700/70 bg-zinc-800 text-[11px] font-medium text-zinc-100">
+                        {selectedPoint.level === "record" ? "Proxy" : selectedPoint.level === "subgroup" ? "Subgroup" : selectedPoint.level === "organization" ? "Network" : "Country"}
+                      </Badge>
+                      {selectedPoint.level === "record" && selectedPoint.records[0] ? (
+                        <Badge variant="outline" className="shrink-0 border-zinc-700/70 bg-zinc-900/70 text-[11px] font-medium text-zinc-200">
+                          {selectedPoint.records[0].protocol.toUpperCase()}
+                        </Badge>
+                      ) : null}
+                    </div>
                   </div>
 
                   {selectedPoint.level === "record" && selectedPoint.records[0] ? (
                     <div className="space-y-3 text-sm">
                       <div className="space-y-2">
-                        <div className="rounded-xl border border-zinc-800/80 bg-black/35 px-3 py-2.5">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="shrink-0 text-[11px] text-zinc-400">IP</div>
-                            <div className="min-w-0 truncate text-right font-mono text-zinc-100">{selectedPoint.records[0].ip}</div>
+                        <div className="rounded-xl border border-zinc-800/80 bg-black/35 p-3">
+                          <div className="text-[11px] text-zinc-400">Endpoint</div>
+                          <div className="mt-1 truncate font-mono text-[13px] font-medium text-zinc-100">
+                            {selectedPoint.records[0].ip}:{selectedPoint.records[0].port}
                           </div>
                         </div>
-                        <div className="rounded-xl border border-zinc-800/80 bg-black/35 px-3 py-2.5">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="shrink-0 text-[11px] text-zinc-400">Port</div>
-                            <div className="min-w-0 truncate text-right font-mono text-zinc-100">{selectedPoint.records[0].port}</div>
-                          </div>
-                        </div>
-                        <div className="rounded-xl border border-zinc-800/80 bg-black/35 px-3 py-2.5">
+                        <div className="rounded-xl border border-zinc-800/80 bg-black/35 p-3">
                           <div className="flex items-center justify-between gap-3">
                             <div className="shrink-0 text-[11px] text-zinc-400">Network</div>
                             <div className="min-w-0 truncate text-right text-zinc-100">{selectedPoint.records[0].organization ?? "Unknown network"}</div>
@@ -1256,31 +1259,19 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                           <div className="mt-1 truncate text-right text-[11px] text-zinc-400">{selectedPoint.records[0].asn ?? "ASN unavailable"}</div>
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                          <div className="rounded-xl border border-zinc-800/80 bg-black/35 px-3 py-2.5">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="shrink-0 text-[11px] text-zinc-400">Protocol</div>
-                              <div className="min-w-0 truncate text-right text-zinc-100">{selectedPoint.records[0].protocol.toUpperCase()}</div>
-                            </div>
+                          <div className="rounded-xl border border-zinc-800/80 bg-black/35 p-3">
+                            <div className="text-[11px] text-zinc-400">Latency</div>
+                            <div className="mt-1 font-medium text-zinc-100">{selectedPoint.records[0].speedMs}ms</div>
                           </div>
-                          <div className="rounded-xl border border-zinc-800/80 bg-black/35 px-3 py-2.5">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="shrink-0 text-[11px] text-zinc-400">Latency</div>
-                              <div className="min-w-0 truncate text-right text-zinc-100">{selectedPoint.records[0].speedMs}ms</div>
-                            </div>
+                          <div className="rounded-xl border border-zinc-800/80 bg-black/35 p-3">
+                            <div className="text-[11px] text-zinc-400">Google</div>
+                            <div className="mt-1 font-medium text-zinc-100">{selectedPoint.records[0].isGoogle ? "Accessible" : "Blocked"}</div>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="rounded-xl border border-zinc-800/80 bg-black/35 px-3 py-2.5">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="shrink-0 text-[11px] text-zinc-400">Google</div>
-                              <div className="min-w-0 truncate text-right text-zinc-100">{selectedPoint.records[0].isGoogle ? "Accessible" : "Blocked"}</div>
-                            </div>
-                          </div>
-                          <div className="rounded-xl border border-zinc-800/80 bg-black/35 px-3 py-2.5">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="shrink-0 text-[11px] text-zinc-400">Updated</div>
-                              <div className="min-w-0 truncate text-right text-zinc-100">{formatDistanceToNow(new Date(selectedPoint.records[0].checkedAt), { addSuffix: true })}</div>
-                            </div>
+                        <div className="rounded-xl border border-zinc-800/80 bg-black/35 p-3">
+                          <div className="text-[11px] text-zinc-400">Updated</div>
+                          <div className="mt-1 font-medium text-zinc-100">
+                            {formatDistanceToNowStrict(new Date(selectedPoint.records[0].checkedAt), { addSuffix: true })}
                           </div>
                         </div>
                       </div>
@@ -1335,9 +1326,10 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
               ) : (
                 <>
                   <div className="mb-3 text-sm font-semibold text-zinc-100">Top Regions</div>
-                  <div className="space-y-2">
+                  <div className="ui-scrollbar max-h-[70vh] space-y-2 overflow-y-auto pr-2">
                     {topCountries.map((country) => {
                       const isSelected = selectedCountryKey === country.key;
+                      const flagIconSrc = getCountryFlagIconSrc(country.countryCode);
 
                       return (
                         <button
@@ -1348,22 +1340,43 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                             onSelectCountry(isSelected ? null : country.key);
                           }}
                           className={cn(
-                            "flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-colors",
-                            isSelected ? "border-zinc-500/30 bg-zinc-800/72" : "border-zinc-800/80 bg-black/30 hover:bg-zinc-800/45",
+                            "flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
+                            isSelected
+                              ? "border-zinc-500/30 bg-zinc-800/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                              : "border-zinc-800/80 bg-black/30 hover:border-zinc-700/80 hover:bg-zinc-800/45",
                           )}
                         >
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="truncate text-sm font-medium text-zinc-100">{country.displayName}</div>
-                            <div className="mt-1 flex items-center gap-1 text-[11px] text-zinc-400">
-                              <span role="img" aria-label={country.displayName} className="text-sm leading-none">
-                                {getCountryFlagEmoji(country.countryCode)}
-                              </span>
-                              <span>{country.googleCount} Google OK</span>
+                            <div className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-400">
+                              {flagIconSrc ? (
+                                <span
+                                  role="img"
+                                  aria-label={`${country.displayName} flag`}
+                                  className="inline-block h-[14px] w-[18px] rounded-[2px] bg-cover bg-center bg-no-repeat"
+                                  style={{ backgroundImage: `url(${flagIconSrc})` }}
+                                />
+                              ) : (
+                                <span role="img" aria-label={`${country.displayName} flag unavailable`} className="text-sm leading-none">
+                                  🌐
+                                </span>
+                              )}
+                              <span>Google OK {country.googleCount.toLocaleString()} / {country.proxyCount.toLocaleString()}</span>
                             </div>
                           </div>
-                          <Badge variant="secondary" className="border border-zinc-700/70 bg-zinc-800 text-[11px] font-medium text-zinc-100">
-                            {country.proxyCount}
-                          </Badge>
+                          <div
+                            className={cn(
+                              "shrink-0 min-w-[82px] rounded-2xl border px-3 py-2.5 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors",
+                              isSelected
+                                ? "border-zinc-500/35 bg-[linear-gradient(180deg,rgba(63,63,70,0.32),rgba(24,24,27,0.9))]"
+                                : "border-zinc-700/70 bg-[linear-gradient(180deg,rgba(39,39,42,0.78),rgba(24,24,27,0.9))]",
+                            )}
+                          >
+                            <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500">Proxies</div>
+                            <div className="mt-1 text-base font-semibold leading-none tabular-nums text-zinc-50">
+                              {country.proxyCount.toLocaleString()}
+                            </div>
+                          </div>
                         </button>
                       );
                     })}
