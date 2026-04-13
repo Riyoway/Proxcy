@@ -381,8 +381,8 @@ const ProxyDashboard: React.FC = () => {
   const exportTriggerClassName = "inline-flex h-9 min-w-[100px] items-center justify-center gap-2 rounded-md border-0 bg-transparent px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-0 data-[popup-open]:bg-muted/50 data-[popup-open]:text-foreground";
   const searchInputClassName = "pl-9 h-9 rounded-md border-0 bg-muted/35 text-sm shadow-none transition-colors placeholder:text-muted-foreground/80 focus-visible:border-transparent focus-visible:ring-0 font-mono";
   const sortButtonClassName = "group flex h-8 w-full items-center gap-2 rounded-none border-0 bg-transparent p-0 text-left text-xs font-semibold text-muted-foreground shadow-none outline-none transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-0";
-  const sectionMotionClassName = "ui-entrance motion-safe:transform-gpu";
-  const cardMotionClassName = "ui-entrance motion-safe:transform-gpu transition-transform duration-300 hover:-translate-y-0.5";
+  const sectionMotionClassName = "";
+  const cardMotionClassName = "";
   const isRefreshing = isLoading && data.length > 0;
 
   const validCount = data.filter((p) => p.is_valid).length;
@@ -534,7 +534,7 @@ const ProxyDashboard: React.FC = () => {
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card
-            className={cn("bg-card/50 backdrop-blur border-border/50 transition-all duration-200 hover:border-border hover:shadow-sm", cardMotionClassName)}
+            className={cn("bg-card/70 border-border/50 transition-colors duration-200 hover:border-border", cardMotionClassName)}
             style={{ animationDelay: "80ms" }}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -546,7 +546,7 @@ const ProxyDashboard: React.FC = () => {
             </CardContent>
           </Card>
           <Card
-            className={cn("bg-card/50 backdrop-blur border-border/50 transition-all duration-200 hover:border-border hover:shadow-sm", cardMotionClassName)}
+            className={cn("bg-card/70 border-border/50 transition-colors duration-200 hover:border-border", cardMotionClassName)}
             style={{ animationDelay: "140ms" }}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -580,15 +580,12 @@ const ProxyDashboard: React.FC = () => {
             </CardContent>
           </Card>
           <Card
-            className={cn("bg-card/50 backdrop-blur border-border/50 transition-all duration-200 hover:border-border hover:shadow-sm", cardMotionClassName)}
+            className={cn("bg-card/70 border-border/50 transition-colors duration-200 hover:border-border", cardMotionClassName)}
             style={{ animationDelay: "200ms" }}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-semibold text-muted-foreground">System Status</CardTitle>
-              <div className="relative flex h-3 w-3 ui-float">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-              </div>
+              <div className="inline-flex h-3 w-3 rounded-full bg-green-500/90 ring-2 ring-green-500/20"></div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold tracking-tight text-foreground">Online</div>
@@ -601,7 +598,7 @@ const ProxyDashboard: React.FC = () => {
           className={sectionMotionClassName}
           style={{ animationDelay: "230ms" }}
         >
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-2xl border border-border/50 bg-card/70 px-4 py-3 backdrop-blur-sm">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-2xl border border-border/50 bg-card/80 px-4 py-3">
             <div>
               <div className="text-sm font-semibold text-foreground">Browse Results</div>
               <div className="text-xs text-muted-foreground">View checked proxies in a table or on the map.</div>
@@ -649,7 +646,7 @@ const ProxyDashboard: React.FC = () => {
         {/* Main Table Card */}
         {viewMode === "list" ? (
           <Card
-            className={cn("relative border-border/50 bg-card/80 backdrop-blur-sm", cardMotionClassName)}
+            className={cn("relative border-border/50 bg-card/85", cardMotionClassName)}
             style={{ animationDelay: "260ms" }}
           >
             <div className={cn("pointer-events-none absolute inset-x-4 top-0 h-px overflow-hidden rounded-full opacity-0 transition-opacity duration-300", isRefreshing && "opacity-100")}>

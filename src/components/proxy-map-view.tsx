@@ -1104,18 +1104,18 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
       </CardHeader>
       <CardContent className="pt-3">
         <div className="grid gap-4 xl:items-start xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="self-start overflow-hidden rounded-2xl border border-zinc-800/90 bg-[#090909] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-            <div className="relative bg-[radial-gradient(circle_at_top,rgba(63,63,70,0.18),transparent_42%),linear-gradient(180deg,rgba(18,18,20,0.98),rgba(8,8,9,1))]">
+          <div className="self-start overflow-hidden rounded-2xl border border-zinc-800/90 bg-[#090909]">
+            <div className="relative bg-[linear-gradient(180deg,rgba(18,18,20,0.98),rgba(8,8,9,1))]">
               <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
-                <Badge variant="secondary" className="rounded-md border border-zinc-700/80 bg-black/75 px-2 py-1 text-[11px] font-medium text-zinc-200 backdrop-blur-sm">
+                <Badge variant="secondary" className="rounded-md border border-zinc-700/80 bg-black/85 px-2 py-1 text-[11px] font-medium text-zinc-200">
                   {pointLevel === "country" ? "Country groups" : pointLevel === "organization" ? "Network groups" : pointLevel === "subgroup" ? "Subgroups" : "Proxy pins"}
                 </Badge>
-                <div className="hidden items-center gap-1 rounded-md border border-zinc-800/80 bg-black/70 px-2 py-1 text-[11px] text-zinc-400 backdrop-blur-sm md:inline-flex">
+                <div className="hidden items-center gap-1 rounded-md border border-zinc-800/80 bg-black/80 px-2 py-1 text-[11px] text-zinc-400 md:inline-flex">
                   <Move className="h-3.5 w-3.5" />
                   Drag to explore, scroll to zoom
                 </div>
               </div>
-              <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-xl border border-zinc-800/80 bg-black/70 px-2 py-1.5 backdrop-blur-sm">
+              <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-xl border border-zinc-800/80 bg-black/80 px-2 py-1.5">
                 <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-zinc-700/80 bg-zinc-900/70 text-zinc-100 hover:bg-zinc-800" onClick={() => handleZoom(1.25)}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
@@ -1128,7 +1128,7 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
               </div>
               {hoveredPoint && hoveredTooltipPosition ? (
                 <div
-                  className="pointer-events-none absolute z-20 w-[min(240px,calc(100%-24px))] rounded-xl border border-zinc-700/80 bg-black/90 px-3 py-2 text-left shadow-lg shadow-black/40 backdrop-blur-sm"
+                  className="pointer-events-none absolute z-20 w-[min(240px,calc(100%-24px))] rounded-xl border border-zinc-700/80 bg-black/92 px-3 py-2 text-left shadow-md shadow-black/25"
                   style={{
                     left: hoveredTooltipPosition.left,
                     top: hoveredTooltipPosition.top,
@@ -1166,10 +1166,9 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                       />
                     );
                   })}
-                  {renderedPoints.map((point, index) => {
+                  {renderedPoints.map((point) => {
                     const isSelected = selectedPointKey === point.key;
                     const isHovered = hoveredPointKey === point.key;
-                    const pinAnimationDelayMs = `${(index % 18) * 110}ms`;
 
                     return (
                       <g
@@ -1184,13 +1183,14 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                         }}
                         style={{ opacity: point.opacity, transition: "opacity 160ms ease-out" }}
                       >
-                        <circle
-                          r={point.haloRadius}
-                          className="ui-map-pin-ping"
-                          fill={isSelected ? "rgba(228, 228, 231, 0.2)" : "rgba(161, 161, 170, 0.16)"}
-                          opacity={isHovered || isSelected ? 1 : 0.68}
-                          style={{ animationDelay: pinAnimationDelayMs }}
-                        />
+                        {isHovered || isSelected ? (
+                          <circle
+                            r={point.haloRadius}
+                            className="ui-map-pin-ping"
+                            fill={isSelected ? "rgba(228, 228, 231, 0.2)" : "rgba(161, 161, 170, 0.16)"}
+                            opacity={1}
+                          />
+                        ) : null}
                         <circle
                           r={point.radius}
                           fill={isSelected ? "rgb(228, 228, 231)" : "rgb(161, 161, 170)"}
@@ -1202,7 +1202,7 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                   })}
                 </g>
               </svg>
-              <div className="absolute inset-x-0 bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-zinc-800/80 bg-[linear-gradient(180deg,rgba(8,8,9,0.16),rgba(8,8,9,0.9))] px-4 py-2.5 text-[11px] text-zinc-400 backdrop-blur-sm">
+              <div className="absolute inset-x-0 bottom-0 z-10 flex flex-wrap items-center gap-3 border-t border-zinc-800/80 bg-[rgba(8,8,9,0.92)] px-4 py-2.5 text-[11px] text-zinc-400">
                 {activePoint ? (
                   <>
                     <span className="font-medium text-zinc-100">{activePoint.label}</span>
