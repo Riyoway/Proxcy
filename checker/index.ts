@@ -18,8 +18,9 @@ const TIMEOUT_MS = 5000;
 const CONCURRENCY = 300; // Lowered from 500 to prevent port/memory exhaustion
 const GEO_LOOKUP_URL = 'https://ipwho.is';
 const GEO_LOOKUP_DELAY_MS = 1100;
+const GEO_LOOKUP_CONCURRENCY = 4;
 const GEO_LOOKUP_TIMEOUT_MS = 10000;
-const GEO_LOOKUP_FIELDS = 'country,country_code,connection';
+const GEO_LOOKUP_FIELDS = 'success,country,country_code,connection';
 const UPLOAD_BATCH_SIZE = 50;
 const CONTINUOUS_MODE = process.env.CHECKER_CONTINUOUS === 'true';
 
@@ -96,6 +97,7 @@ type NodeAxiosConfig = NonNullable<Parameters<typeof axios.get>[1]> & {
 };
 
 const geoCache = new Map<string, GeoCacheEntry>();
+const geoLookupPromises = new Map<string, Promise<GeoCacheEntry>>();
 
 function emptyGeoMetadata(): GeoCacheEntry {
   return {
@@ -198,6 +200,18 @@ function isAxiosLikeError(error: unknown): error is AxiosLikeError {
   return typeof error === 'object' && error !== null && ('message' in error || 'response' in error);
 }
 
+function hasGeoLookupData(payload: GeoLookupResponse | undefined): boolean {
+  if (!payload) {
+    return false;
+  }
+
+  return typeof payload.country === 'string'
+    || typeof payload.country_code === 'string'
+    || typeof payload.connection?.asn === 'number'
+    || typeof payload.connection?.asn === 'string'
+    || typeof payload.connection?.org === 'string';
+}
+
 async function fetchGeoMetadata(ip: string): Promise<GeoLookupResult> {
   try {
     const response = await axios.get<GeoLookupResponse>(`${GEO_LOOKUP_URL}/${ip}`, {
@@ -208,10 +222,17 @@ async function fetchGeoMetadata(ip: string): Promise<GeoLookupResult> {
     });
 
     const payload = response.data;
-    if (!payload?.success) {
+    if (payload?.success === false) {
       return {
         status: 'not_found',
         message: payload?.message ?? 'Geo lookup returned success=false',
+      };
+    }
+
+    if (!hasGeoLookupData(payload)) {
+      return {
+        status: 'not_found',
+        message: payload?.message ?? 'Geo lookup returned no usable metadata',
       };
     }
 
@@ -250,63 +271,84 @@ async function fetchGeoMetadata(ip: string): Promise<GeoLookupResult> {
   }
 }
 
-async function enrichProxyMetadata(records: ProxyRecord[]): Promise<ProxyRecord[]> {
-  const missingIps = Array.from(new Set(records.map(record => record.ip))).filter(ip => !geoCache.has(ip));
-  let unavailableCount = 0;
-  let retryFailureCount = 0;
+async function lookupGeoMetadataEntry(ip: string): Promise<GeoCacheEntry> {
+  const firstAttempt = await fetchGeoMetadata(ip);
 
-  if (missingIps.length > 0) {
-    console.log(`Enriching ${missingIps.length} IPs with geo metadata...`);
-  }
-
-  for (const ip of missingIps) {
-    const firstAttempt = await fetchGeoMetadata(ip);
-
-    if (firstAttempt.status === 'success') {
-      geoCache.set(ip, {
-        ...(firstAttempt.metadata ?? emptyGeoMetadata()),
-        geo_status: 'resolved',
-      });
-    } else if (firstAttempt.status === 'not_found') {
-      unavailableCount++;
-      geoCache.set(ip, emptyGeoMetadata());
-    } else {
-      const retryDelay = firstAttempt.retryAfterMs ?? GEO_LOOKUP_DELAY_MS * 2;
-      console.warn(`Geo metadata lookup failed for ${ip}: ${firstAttempt.message ?? 'Unknown error'}. Retrying in ${retryDelay}ms.`);
-      await wait(retryDelay);
-
-      const secondAttempt = await fetchGeoMetadata(ip);
-
-      if (secondAttempt.status === 'success') {
-        geoCache.set(ip, {
-          ...(secondAttempt.metadata ?? emptyGeoMetadata()),
-          geo_status: 'resolved',
-        });
-      } else if (secondAttempt.status === 'not_found') {
-        unavailableCount++;
-        geoCache.set(ip, emptyGeoMetadata());
-      } else {
-        retryFailureCount++;
-        console.warn(`Geo metadata lookup skipped for ${ip} after retry failure: ${secondAttempt.message ?? 'Unknown error'}`);
-        geoCache.set(ip, emptyGeoMetadata());
-      }
-    }
-
+  if (firstAttempt.status === 'success') {
     await wait(GEO_LOOKUP_DELAY_MS);
+    return {
+      ...(firstAttempt.metadata ?? emptyGeoMetadata()),
+      geo_status: 'resolved',
+    };
   }
 
-  if (unavailableCount > 0) {
-    console.log(`Geo metadata unavailable for ${unavailableCount} IPs.`);
+  if (firstAttempt.status === 'not_found') {
+    await wait(GEO_LOOKUP_DELAY_MS);
+    return emptyGeoMetadata();
   }
 
-  if (retryFailureCount > 0) {
-    console.log(`Geo metadata skipped for ${retryFailureCount} IPs after retry failures.`);
+  const retryDelay = firstAttempt.retryAfterMs ?? GEO_LOOKUP_DELAY_MS * 2;
+  console.warn(`Geo metadata lookup failed for ${ip}: ${firstAttempt.message ?? 'Unknown error'}. Retrying in ${retryDelay}ms.`);
+  await wait(retryDelay);
+
+  const secondAttempt = await fetchGeoMetadata(ip);
+
+  if (secondAttempt.status === 'success') {
+    await wait(GEO_LOOKUP_DELAY_MS);
+    return {
+      ...(secondAttempt.metadata ?? emptyGeoMetadata()),
+      geo_status: 'resolved',
+    };
   }
 
-  return records.map(record => ({
+  if (secondAttempt.status === 'not_found') {
+    await wait(GEO_LOOKUP_DELAY_MS);
+    return emptyGeoMetadata();
+  }
+
+  console.warn(`Geo metadata lookup skipped for ${ip} after retry failure: ${secondAttempt.message ?? 'Unknown error'}`);
+  await wait(GEO_LOOKUP_DELAY_MS);
+  return emptyGeoMetadata();
+}
+
+async function resolveGeoMetadata(ip: string): Promise<GeoCacheEntry> {
+  const cachedMetadata = geoCache.get(ip);
+
+  if (cachedMetadata) {
+    return cachedMetadata;
+  }
+
+  const pendingLookup = geoLookupPromises.get(ip);
+
+  if (pendingLookup) {
+    return pendingLookup;
+  }
+
+  const lookupPromise = (async () => {
+    try {
+      const metadata = await lookupGeoMetadataEntry(ip);
+      geoCache.set(ip, metadata);
+      return metadata;
+    } finally {
+      geoLookupPromises.delete(ip);
+    }
+  })();
+
+  geoLookupPromises.set(ip, lookupPromise);
+  return lookupPromise;
+}
+
+async function enrichProxyRecord(record: ProxyRecord): Promise<ProxyRecord> {
+  const cachedRecord = applyCachedGeoMetadata(record);
+
+  if (cachedRecord !== record) {
+    return cachedRecord;
+  }
+
+  return {
     ...record,
-    ...(geoCache.get(record.ip) ?? {}),
-  }));
+    ...(await resolveGeoMetadata(record.ip)),
+  };
 }
 
 /**
@@ -429,6 +471,7 @@ async function runCycle() {
   console.log(`Downloaded ${rawProxies.length} unique proxies.`);
 
   const limit = pLimit(CONCURRENCY);
+  const geoLimit = pLimit(GEO_LOOKUP_CONCURRENCY);
   let checkedCount = 0;
   let validCount = 0;
 
@@ -438,7 +481,7 @@ async function runCycle() {
   const liveUploadBuffer: ProxyRecord[] = [];
   let uploadQueue = Promise.resolve();
 
-  const uploadBatch = async (chunk: ProxyRecord[], phase: 'live' | 'geo') => {
+  const uploadBatch = async (chunk: ProxyRecord[]) => {
     try {
       const uniqueChunk = Array.from(new Map(chunk.map(item => [item.id, item])).values());
 
@@ -451,19 +494,19 @@ async function runCycle() {
         .upsert(uniqueChunk, { onConflict: 'id' });
 
       if (error) {
-        console.error(`Error upserting ${phase} batch to Supabase:`, error);
+        console.error('Error upserting live batch to Supabase:', error);
       }
     } catch (err) {
-      console.error(`Unexpected error upserting ${phase} batch:`, err);
+      console.error('Unexpected error upserting live batch:', err);
     }
   };
 
-  const queueUpload = (chunk: ProxyRecord[], phase: 'live' | 'geo') => {
+  const queueUpload = (chunk: ProxyRecord[]) => {
     if (chunk.length === 0) {
       return;
     }
 
-    uploadQueue = uploadQueue.then(() => uploadBatch(chunk, phase));
+    uploadQueue = uploadQueue.then(() => uploadBatch(chunk));
   };
 
   const flushLiveUploadBuffer = (force = false) => {
@@ -472,7 +515,7 @@ async function runCycle() {
     }
 
     const chunk = liveUploadBuffer.splice(0, liveUploadBuffer.length);
-    queueUpload(chunk, 'live');
+    queueUpload(chunk);
   };
 
   const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
@@ -498,9 +541,9 @@ async function runCycle() {
     }
 
     if (result && result.is_valid) {
-      const liveRecord = applyCachedGeoMetadata(result);
+      validCount = new Set([...validProxies.keys(), result.id]).size;
+      const liveRecord = await geoLimit(() => enrichProxyRecord(result));
       validProxies.set(liveRecord.id, liveRecord);
-      validCount = validProxies.size;
       liveUploadBuffer.push(liveRecord);
       flushLiveUploadBuffer();
     }
@@ -513,7 +556,7 @@ async function runCycle() {
 
   const uniqueValidProxies = Array.from(validProxies.values());
 
-  console.log(`Initial upload complete. Uploaded ${uniqueValidProxies.length} unique valid proxies to Supabase before geo enrichment.`);
+  console.log(`Live upload complete. Uploaded ${uniqueValidProxies.length} unique valid proxies to Supabase with geo metadata.`);
 
   console.log("Cleaning up old proxies that didn't pass this check...");
   const { error: delError } = await supabase
@@ -527,13 +570,7 @@ async function runCycle() {
     console.log("Cleanup complete. Removed invalid/dead proxies successfully.");
   }
 
-  const enrichedValidProxies = await enrichProxyMetadata(uniqueValidProxies);
-
-  for (let index = 0; index < enrichedValidProxies.length; index += UPLOAD_BATCH_SIZE) {
-    await uploadBatch(enrichedValidProxies.slice(index, index + UPLOAD_BATCH_SIZE), 'geo');
-  }
-
-  console.log(`Geo enrichment upload complete. Total unique valid proxies found: ${enrichedValidProxies.length}`);
+  console.log(`Cycle complete. Total unique valid proxies found: ${uniqueValidProxies.length}`);
 }
 
 async function main() {

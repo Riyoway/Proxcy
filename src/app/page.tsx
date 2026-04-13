@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { formatDistanceToNow } from "date-fns";
-import { Search, Download, ChevronDown, ChevronUp, ChevronsUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Activity, RefreshCw, Globe, Cable, MapPinned, ShieldCheck, Gauge, Clock3, Fingerprint } from "lucide-react";
+import { Search, Download, ChevronDown, ChevronUp, ChevronsUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Globe, Cable, MapPinned, ShieldCheck, Gauge, Clock3, Fingerprint } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { normalizeCountryName } from "@/lib/country";
+
+const ProxyMapView = dynamic(() => import("@/components/proxy-map-view").then((module) => module.ProxyMapView), {
+  ssr: false,
+  loading: () => (
+    <Card className="border-border/60 bg-card/70">
+      <CardContent className="space-y-4 p-6">
+        <Skeleton className="h-6 w-36" />
+        <Skeleton className="h-[420px] w-full rounded-2xl" />
+      </CardContent>
+    </Card>
+  ),
+});
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -59,9 +73,9 @@ interface ProxyRecord {
   checked_at: string;
 }
 
-type SortField = "ip" | "port" | "country_name" | "protocol" | "speed_ms" | "checked_at";
+type SortField = "ip" | "port" | "country_name" | "protocol" | "organization" | "speed_ms" | "is_google" | "checked_at";
 type SortDirection = "asc" | "desc";
-type GeoVisibilityMode = "resolved_only" | "include_unresolved";
+type ViewMode = "list" | "map";
 const emojiFontFamily = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif';
 
 function getCountryFlagEmoji(countryCode: string | null): string {
@@ -180,7 +194,8 @@ const ProxyDashboard: React.FC = () => {
   const [pageSize] = useState(15);
   const [protocolFilters, setProtocolFilters] = useState<Set<string>>(new Set());
   const [googleAccessFilter, setGoogleAccessFilter] = useState<"all" | "yes" | "no">("all");
-  const [geoVisibilityMode, setGeoVisibilityMode] = useState<GeoVisibilityMode>("include_unresolved");
+  const [selectedCountryKey, setSelectedCountryKey] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   const fetchProxies = useCallback(async () => {
     setIsLoading(true);
@@ -231,16 +246,21 @@ const ProxyDashboard: React.FC = () => {
     [sortField],
   );
 
-  const filteredAndSortedData = useMemo(() => {
-    const filtered = data.filter((item) => {
+  const baseFilteredData = useMemo(() => {
+    return data.filter((item) => {
       const normalizedQuery = searchQuery.toLowerCase();
       const matchesSearch = [item.id, item.ip, String(item.port), item.country_name ?? "", item.country_code ?? "", item.organization ?? "", item.asn ?? ""].some((value) => value.toLowerCase().includes(normalizedQuery));
       const protocolUpper = item.protocol.toUpperCase();
       const matchesProtocol = protocolFilters.size === 0 || protocolFilters.has(protocolUpper);
       const matchesGoogle = googleAccessFilter === "all" || (googleAccessFilter === "yes" && item.is_google) || (googleAccessFilter === "no" && !item.is_google);
-      const matchesGeoVisibility = geoVisibilityMode === "include_unresolved" || item.geo_status === "resolved";
 
-      return matchesSearch && matchesProtocol && matchesGoogle && matchesGeoVisibility;
+      return matchesSearch && matchesProtocol && matchesGoogle;
+    });
+  }, [data, searchQuery, protocolFilters, googleAccessFilter]);
+
+  const filteredAndSortedData = useMemo(() => {
+    const filtered = baseFilteredData.filter((item) => {
+      return selectedCountryKey === null || normalizeCountryName(item.country_name) === selectedCountryKey;
     });
 
     filtered.sort((a, b) => {
@@ -262,6 +282,24 @@ const ProxyDashboard: React.FC = () => {
         return 0;
       }
 
+      if (sortField === "is_google") {
+        const aVal = Number(a.is_google);
+        const bVal = Number(b.is_google);
+
+        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      }
+
+      if (sortField === "organization") {
+        const aVal = `${a.organization ?? ""} ${a.asn ?? ""}`.trim().toLowerCase();
+        const bVal = `${b.organization ?? ""} ${b.asn ?? ""}`.trim().toLowerCase();
+
+        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      }
+
       const aVal = (a[sortField] ?? "").toString().toLowerCase();
       const bVal = (b[sortField] ?? "").toString().toLowerCase();
 
@@ -271,7 +309,7 @@ const ProxyDashboard: React.FC = () => {
     });
 
     return filtered;
-  }, [data, searchQuery, sortField, sortDirection, protocolFilters, googleAccessFilter, geoVisibilityMode]);
+  }, [baseFilteredData, sortField, sortDirection, selectedCountryKey]);
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
@@ -326,12 +364,12 @@ const ProxyDashboard: React.FC = () => {
   const clearFilters = useCallback(() => {
     setProtocolFilters(new Set());
     setGoogleAccessFilter("all");
-    setGeoVisibilityMode("include_unresolved");
+    setSelectedCountryKey(null);
     setSearchQuery("");
     setCurrentPage(1);
   }, []);
 
-  const hasActiveFilters = protocolFilters.size > 0 || googleAccessFilter !== "all" || geoVisibilityMode !== "include_unresolved" || searchQuery !== "";
+  const hasActiveFilters = protocolFilters.size > 0 || googleAccessFilter !== "all" || selectedCountryKey !== null || searchQuery !== "";
 
   const SortIcon: React.FC<{ field: SortField }> = ({ field }) => {
     if (sortField !== field) return <ChevronsUpDown className={getSortIconClassName(field)} />;
@@ -349,9 +387,109 @@ const ProxyDashboard: React.FC = () => {
 
   const validCount = data.filter((p) => p.is_valid).length;
   const googleCount = data.filter((p) => p.is_google).length;
-  const geoResolvedCount = data.filter((p) => p.geo_status === "resolved").length;
-  const geoResolvingCount = data.filter((p) => p.geo_status === "resolving").length;
-  const geoUnavailableCount = data.filter((p) => p.geo_status === "unavailable").length;
+  const countryStats = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        countryCode: string | null;
+        displayName: string;
+        fastestSpeedMs: number;
+        googleCount: number;
+        key: string;
+        latestCheckedAt: string;
+        protocolCounts: Map<string, number>;
+        proxyCount: number;
+        speedTotalMs: number;
+      }
+    >();
+
+    for (const item of baseFilteredData) {
+      const key = normalizeCountryName(item.country_name);
+
+      if (!key) {
+        continue;
+      }
+
+      const existing = grouped.get(key);
+
+      if (existing) {
+        existing.proxyCount += 1;
+        existing.googleCount += item.is_google ? 1 : 0;
+        existing.speedTotalMs += item.speed_ms;
+        existing.fastestSpeedMs = Math.min(existing.fastestSpeedMs, item.speed_ms);
+        existing.protocolCounts.set(item.protocol.toUpperCase(), (existing.protocolCounts.get(item.protocol.toUpperCase()) ?? 0) + 1);
+
+        if (!existing.countryCode && item.country_code) {
+          existing.countryCode = item.country_code;
+        }
+
+        if (item.country_name && item.country_name.length > existing.displayName.length) {
+          existing.displayName = item.country_name;
+        }
+
+        if (new Date(item.checked_at).getTime() > new Date(existing.latestCheckedAt).getTime()) {
+          existing.latestCheckedAt = item.checked_at;
+        }
+
+        continue;
+      }
+
+      grouped.set(key, {
+        key,
+        displayName: item.country_name ?? key,
+        countryCode: item.country_code,
+        fastestSpeedMs: item.speed_ms,
+        googleCount: item.is_google ? 1 : 0,
+        latestCheckedAt: item.checked_at,
+        protocolCounts: new Map([[item.protocol.toUpperCase(), 1]]),
+        proxyCount: 1,
+        speedTotalMs: item.speed_ms,
+      });
+    }
+
+    return Array.from(grouped.values())
+      .map((item) => ({
+        averageSpeedMs: Math.round(item.speedTotalMs / Math.max(item.proxyCount, 1)),
+        countryCode: item.countryCode,
+        displayName: item.displayName,
+        fastestSpeedMs: item.fastestSpeedMs,
+        googleCount: item.googleCount,
+        key: item.key,
+        latestCheckedAt: formatDistanceToNow(new Date(item.latestCheckedAt), { addSuffix: true }),
+        protocolCounts: Array.from(item.protocolCounts.entries())
+          .map(([protocol, count]) => ({ protocol, count }))
+          .sort((a, b) => b.count - a.count),
+        proxyCount: item.proxyCount,
+      }))
+      .sort((a, b) => b.proxyCount - a.proxyCount);
+  }, [baseFilteredData]);
+  const mapRecords = useMemo(() => {
+    return baseFilteredData
+      .map((item) => {
+        const countryKey = normalizeCountryName(item.country_name);
+
+        if (!countryKey) {
+          return null;
+        }
+
+        return {
+          asn: item.asn,
+          checkedAt: item.checked_at,
+          countryCode: item.country_code,
+          countryKey,
+          countryName: item.country_name,
+          id: item.id,
+          ip: item.ip,
+          isGoogle: item.is_google,
+          organization: item.organization,
+          port: item.port,
+          protocol: item.protocol,
+          speedMs: item.speed_ms,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [baseFilteredData]);
+  const selectedCountryStat = selectedCountryKey ? (countryStats.find((item) => item.key === selectedCountryKey) ?? null) : null;
   const getSortLabelClassName = (field: SortField) => cn("transition-colors group-hover:text-foreground", sortField === field ? "text-foreground underline underline-offset-4 decoration-1" : "text-muted-foreground");
   const getSortIconClassName = (field: SortField) => cn("ml-2 h-3 w-3 transition-opacity", sortField === field ? "opacity-100 text-foreground" : "opacity-45 group-hover:opacity-70");
 
@@ -362,13 +500,9 @@ const ProxyDashboard: React.FC = () => {
         <div className={cn("flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8", sectionMotionClassName)}>
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="relative flex h-3 w-3 ui-float">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight">Proxy Dashboard</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Free Proxy Checker</h1>
             </div>
-            <p className="text-sm text-muted-foreground max-w-[600px]">Real-time validation results for thousands of proxies. Continuously refreshed to highlight endpoints that still respond reliably and can reach Google-owned services.</p>
+            <p className="text-sm text-muted-foreground max-w-[600px]">Check free proxies by speed, location, and Google access.</p>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-xs text-muted-foreground flex items-center gap-2">
@@ -408,7 +542,7 @@ const ProxyDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold tracking-tight">{validCount.toLocaleString()}</div>
-              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">Currently available active nodes</div>
+              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">Working proxies</div>
             </CardContent>
           </Card>
           <Card
@@ -442,7 +576,7 @@ const ProxyDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold tracking-tight">{googleCount.toLocaleString()}</div>
-              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">Proxies passing Google connectivity</div>
+              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">Can reach Google</div>
             </CardContent>
           </Card>
           <Card
@@ -451,535 +585,551 @@ const ProxyDashboard: React.FC = () => {
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-semibold text-muted-foreground">System Status</CardTitle>
-              <Activity className="h-4 w-4 text-green-500" />
+              <div className="relative flex h-3 w-3 ui-float">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold tracking-tight text-foreground">Online</div>
-              <div className="text-xs text-muted-foreground mt-1">Worker: GitHub Actions Background Job</div>
+              <div className="text-xs text-muted-foreground mt-1">Background checks are running</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Table Card */}
-        <Card
-          className={cn("relative border-border/50 bg-card/80 backdrop-blur-sm", cardMotionClassName)}
-          style={{ animationDelay: "260ms" }}
+        <div
+          className={sectionMotionClassName}
+          style={{ animationDelay: "230ms" }}
         >
-          <div className={cn("pointer-events-none absolute inset-x-4 top-0 h-px overflow-hidden rounded-full opacity-0 transition-opacity duration-300", isRefreshing && "opacity-100")}>
-            <div className="ui-loading-bar h-full w-full" />
-          </div>
-          <CardHeader className="border-b border-border/40 pb-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <CardTitle className="text-lg font-bold tracking-tight">Records</CardTitle>
-              </div>
-              <Badge
-                variant="secondary"
-                className="font-sans px-2.5 py-0.5"
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-2xl border border-border/50 bg-card/70 px-4 py-3 backdrop-blur-sm">
+            <div>
+              <div className="text-sm font-semibold text-foreground">Browse Results</div>
+              <div className="text-xs text-muted-foreground">View checked proxies in a table or on the map.</div>
+            </div>
+            <div className="inline-flex items-center rounded-lg border border-border/50 bg-background/60 p-1">
+              <Button
+                type="button"
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="sm"
+                className={cn("h-8 rounded-md px-3 text-xs", viewMode === "list" ? "shadow-none" : "text-muted-foreground")}
+                onClick={() => setViewMode("list")}
               >
-                {filteredAndSortedData.length} visible results
-              </Badge>
+                Table
+              </Button>
+              <Button
+                type="button"
+                variant={viewMode === "map" ? "secondary" : "ghost"}
+                size="sm"
+                className={cn("h-8 rounded-md px-3 text-xs", viewMode === "map" ? "shadow-none" : "text-muted-foreground")}
+                onClick={() => setViewMode("map")}
+              >
+                Map
+              </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-              <Badge variant="outline" className="gap-1 border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400">
-                <MapPinned className="h-3 w-3" />
-                Resolved {geoResolvedCount}
-              </Badge>
-              <Badge variant="outline" className="gap-1 border-primary/20 bg-primary/5 text-primary">
-                <RefreshCw className={cn("h-3 w-3", geoResolvingCount > 0 && "animate-spin")} />
-                Resolving {geoResolvingCount}
-              </Badge>
-              <Badge variant="outline" className="gap-1 border-border/60 bg-muted/30 text-muted-foreground">
-                <Globe className="h-3 w-3" />
-                Unavailable {geoUnavailableCount}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="space-y-4">
-              {/* Filters & Search */}
-              <div className={toolbarSurfaceClassName}>
-                <div className="flex flex-col md:flex-row md:items-center gap-1.5">
-                  <div className="relative flex-1 min-w-0 md:min-w-[320px]">
-                    <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search IP, Port, Country, ASN..."
-                      value={searchQuery}
-                      onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        setCurrentPage(1);
-                      }}
-                      className={searchInputClassName}
-                      aria-label="Search proxies"
-                    />
-                  </div>
+          </div>
+        </div>
 
-                  {/* Protocol Filter */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className={filterTriggerClassName}>
-                      <Filter className="h-3.5 w-3.5" />
-                      Protocol
-                      {protocolFilters.size > 0 && (
-                        <Badge
-                          variant="secondary"
-                          className="ml-1.5 h-4 w-4 rounded-sm p-0 flex items-center justify-center"
-                        >
-                          {protocolFilters.size}
-                        </Badge>
-                      )}
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-40"
-                    >
-                      {["HTTP", "HTTPS", "SOCKS4", "SOCKS5"].map((protocol) => (
+        {viewMode === "map" ? (
+          <div
+            className={sectionMotionClassName}
+            style={{ animationDelay: "240ms" }}
+          >
+            <ProxyMapView
+              countryStats={countryStats}
+              records={mapRecords}
+              selectedCountryKey={selectedCountryKey}
+              onSelectCountry={(countryKey: string | null) => {
+                setSelectedCountryKey(countryKey);
+                setCurrentPage(1);
+              }}
+            />
+          </div>
+        ) : null}
+
+        {/* Main Table Card */}
+        {viewMode === "list" ? (
+          <Card
+            className={cn("relative border-border/50 bg-card/80 backdrop-blur-sm", cardMotionClassName)}
+            style={{ animationDelay: "260ms" }}
+          >
+            <div className={cn("pointer-events-none absolute inset-x-4 top-0 h-px overflow-hidden rounded-full opacity-0 transition-opacity duration-300", isRefreshing && "opacity-100")}>
+              <div className="ui-loading-bar h-full w-full" />
+            </div>
+            <CardHeader className="border-b border-border/40 pb-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg font-bold tracking-tight">Records</CardTitle>
+                </div>
+                <Badge
+                  variant="secondary"
+                  className="font-sans px-2.5 py-0.5"
+                >
+                  {filteredAndSortedData.length} visible results
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="space-y-4">
+                {/* Filters & Search */}
+                <div className={toolbarSurfaceClassName}>
+                  <div className="flex flex-col md:flex-row md:items-center gap-1.5">
+                    <div className="relative flex-1 min-w-0 md:min-w-[320px]">
+                      <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search IP, Port, Country, ASN..."
+                        value={searchQuery}
+                        onChange={(e) => {
+                          setSearchQuery(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className={searchInputClassName}
+                        aria-label="Search proxies"
+                      />
+                    </div>
+
+                    {/* Protocol Filter */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className={filterTriggerClassName}>
+                        <Filter className="h-3.5 w-3.5" />
+                        Protocol
+                        {protocolFilters.size > 0 && (
+                          <Badge
+                            variant="secondary"
+                            className="ml-1.5 h-4 w-4 rounded-sm p-0 flex items-center justify-center"
+                          >
+                            {protocolFilters.size}
+                          </Badge>
+                        )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-40"
+                      >
+                        {["HTTP", "HTTPS", "SOCKS4", "SOCKS5"].map((protocol) => (
+                          <DropdownMenuCheckboxItem
+                            key={protocol}
+                            checked={protocolFilters.has(protocol)}
+                            onCheckedChange={() => toggleProtocolFilter(protocol)}
+                            className="text-xs font-medium"
+                          >
+                            {protocol}
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {/* Google Access Filter */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[148px]")}>
+                        <Globe className="h-3.5 w-3.5" />
+                        Google Access
+                        {googleAccessFilter !== "all" && (
+                          <Badge
+                            variant="secondary"
+                            className="ml-1.5 h-4 w-4 rounded-sm p-0 flex items-center justify-center"
+                          >
+                            1
+                          </Badge>
+                        )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-40"
+                      >
                         <DropdownMenuCheckboxItem
-                          key={protocol}
-                          checked={protocolFilters.has(protocol)}
-                          onCheckedChange={() => toggleProtocolFilter(protocol)}
+                          checked={googleAccessFilter === "all"}
+                          onCheckedChange={() => {
+                            setGoogleAccessFilter("all");
+                            setCurrentPage(1);
+                          }}
                           className="text-xs font-medium"
                         >
-                          {protocol}
+                          All
                         </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* Google Access Filter */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[148px]")}>
-                      <Globe className="h-3.5 w-3.5" />
-                      Google Access
-                      {googleAccessFilter !== "all" && (
-                        <Badge
-                          variant="secondary"
-                          className="ml-1.5 h-4 w-4 rounded-sm p-0 flex items-center justify-center"
+                        <DropdownMenuCheckboxItem
+                          checked={googleAccessFilter === "yes"}
+                          onCheckedChange={() => {
+                            setGoogleAccessFilter("yes");
+                            setCurrentPage(1);
+                          }}
+                          className="text-xs font-medium"
                         >
-                          1
-                        </Badge>
-                      )}
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-40"
-                    >
-                      <DropdownMenuCheckboxItem
-                        checked={googleAccessFilter === "all"}
-                        onCheckedChange={() => {
-                          setGoogleAccessFilter("all");
-                          setCurrentPage(1);
-                        }}
-                        className="text-xs font-medium"
-                      >
-                        All
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={googleAccessFilter === "yes"}
-                        onCheckedChange={() => {
-                          setGoogleAccessFilter("yes");
-                          setCurrentPage(1);
-                        }}
-                        className="text-xs font-medium"
-                      >
-                        Accessible
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={googleAccessFilter === "no"}
-                        onCheckedChange={() => {
-                          setGoogleAccessFilter("no");
-                          setCurrentPage(1);
-                        }}
-                        className="text-xs font-medium"
-                      >
-                        Blocked
-                      </DropdownMenuCheckboxItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[148px]")}>
-                      <MapPinned className="h-3.5 w-3.5" />
-                      Geo Check
-                      {geoVisibilityMode === "resolved_only" && (
-                        <Badge
-                          variant="secondary"
-                          className="ml-1.5 h-4 w-4 rounded-sm p-0 flex items-center justify-center"
+                          Accessible
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          checked={googleAccessFilter === "no"}
+                          onCheckedChange={() => {
+                            setGoogleAccessFilter("no");
+                            setCurrentPage(1);
+                          }}
+                          className="text-xs font-medium"
                         >
-                          1
-                        </Badge>
-                      )}
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-52"
-                    >
-                      <DropdownMenuCheckboxItem
-                        checked={geoVisibilityMode === "resolved_only"}
-                        onCheckedChange={() => {
-                          setGeoVisibilityMode("resolved_only");
-                          setCurrentPage(1);
-                        }}
-                        className="text-xs font-medium"
-                      >
-                        ON: Show geo-resolved only
-                      </DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem
-                        checked={geoVisibilityMode === "include_unresolved"}
-                        onCheckedChange={() => {
-                          setGeoVisibilityMode("include_unresolved");
-                          setCurrentPage(1);
-                        }}
-                        className="text-xs font-medium"
-                      >
-                        OFF: Include unresolved geo
-                      </DropdownMenuCheckboxItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          Blocked
+                        </DropdownMenuCheckboxItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
-                  {hasActiveFilters && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearFilters}
-                      className="gap-1 h-9 rounded-md border-0 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-0"
-                      aria-label="Clear all filters"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Clear
-                    </Button>
-                  )}
+                    {selectedCountryStat ? (
+                      <Badge
+                        variant="outline"
+                        className="inline-flex h-9 items-center gap-2 rounded-md border-zinc-700/70 bg-zinc-900/70 px-3 text-xs font-medium text-zinc-200"
+                      >
+                        <MapPinned className="h-3.5 w-3.5" />
+                        {selectedCountryStat.displayName}
+                      </Badge>
+                    ) : null}
 
-                  {/* Export Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className={cn(exportTriggerClassName, "md:ml-auto")}>
-                      <Download className="h-3.5 w-3.5" />
-                      <span>Export</span>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      className="w-56"
-                    >
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current View</div>
-                      <DropdownMenuItem
-                        onClick={() => handleExport("csv", false)}
-                        className="text-xs cursor-pointer font-medium"
+                    {hasActiveFilters && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="gap-1 h-9 rounded-md border-0 text-xs font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-0"
+                        aria-label="Clear all filters"
                       >
-                        Export as CSV
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleExport("txt", false)}
-                        className="text-xs cursor-pointer font-medium"
+                        <X className="h-3.5 w-3.5" />
+                        Clear
+                      </Button>
+                    )}
+
+                    {/* Export Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className={cn(exportTriggerClassName, "md:ml-auto")}>
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Export</span>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-56"
                       >
-                        Export as TXT (IP:Port)
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Google Accessible Only</div>
-                      <DropdownMenuItem
-                        onClick={() => handleExport("csv", true)}
-                        className="text-xs cursor-pointer font-medium"
-                      >
-                        Export as CSV
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleExport("txt", true)}
-                        className="text-xs cursor-pointer font-medium"
-                      >
-                        Export as TXT (IP:Port)
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current View</div>
+                        <DropdownMenuItem
+                          onClick={() => handleExport("csv", false)}
+                          className="text-xs cursor-pointer font-medium"
+                        >
+                          Export as CSV
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleExport("txt", false)}
+                          className="text-xs cursor-pointer font-medium"
+                        >
+                          Export as TXT (IP:Port)
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Google Accessible Only</div>
+                        <DropdownMenuItem
+                          onClick={() => handleExport("csv", true)}
+                          className="text-xs cursor-pointer font-medium"
+                        >
+                          Export as CSV
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleExport("txt", true)}
+                          className="text-xs cursor-pointer font-medium"
+                        >
+                          Export as TXT (IP:Port)
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-              </div>
 
-              <div className="rounded-md border border-border/50 bg-background/50">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-transparent">
-                      <TableRow className="hover:bg-transparent">
-                        <TableHead className="w-[180px]">
-                          <button
-                            type="button"
-                            onClick={() => handleSort("ip")}
-                            className={cn(sortButtonClassName, "justify-start")}
-                          >
-                            <span className={cn(getSortLabelClassName("ip"), "inline-flex items-center gap-1.5")}>
-                              <Globe className="h-3.5 w-3.5 opacity-70" />
-                              IP
-                            </span>
-                            <SortIcon field="ip" />
-                          </button>
-                        </TableHead>
+                <div className="rounded-md border border-border/50 bg-background/50">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader className="bg-transparent">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="w-[180px]">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("ip")}
+                              className={cn(sortButtonClassName, "justify-start")}
+                            >
+                              <span className={cn(getSortLabelClassName("ip"), "inline-flex items-center gap-1.5")}>
+                                <Globe className="h-3.5 w-3.5 opacity-70" />
+                                IP
+                              </span>
+                              <SortIcon field="ip" />
+                            </button>
+                          </TableHead>
 
-                        <TableHead className="w-[90px]">
-                          <button
-                            type="button"
-                            onClick={() => handleSort("port")}
-                            className={cn(sortButtonClassName, "justify-start")}
-                          >
-                            <span className={cn(getSortLabelClassName("port"), "inline-flex items-center gap-1.5")}>
-                              <Cable className="h-3.5 w-3.5 opacity-70" />
-                              Port
-                            </span>
-                            <SortIcon field="port" />
-                          </button>
-                        </TableHead>
+                          <TableHead className="w-[90px]">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("port")}
+                              className={cn(sortButtonClassName, "justify-start")}
+                            >
+                              <span className={cn(getSortLabelClassName("port"), "inline-flex items-center gap-1.5")}>
+                                <Cable className="h-3.5 w-3.5 opacity-70" />
+                                Port
+                              </span>
+                              <SortIcon field="port" />
+                            </button>
+                          </TableHead>
 
-                        <TableHead className="w-[140px]">
-                          <button
-                            type="button"
-                            onClick={() => handleSort("country_name")}
-                            className={cn(sortButtonClassName, "justify-start")}
-                          >
-                            <span className={cn(getSortLabelClassName("country_name"), "inline-flex items-center gap-1.5")}>
-                              <MapPinned className="h-3.5 w-3.5 opacity-70" />
-                              Country
-                            </span>
-                            <SortIcon field="country_name" />
-                          </button>
-                        </TableHead>
+                          <TableHead className="w-[140px]">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("country_name")}
+                              className={cn(sortButtonClassName, "justify-start")}
+                            >
+                              <span className={cn(getSortLabelClassName("country_name"), "inline-flex items-center gap-1.5")}>
+                                <MapPinned className="h-3.5 w-3.5 opacity-70" />
+                                Country
+                              </span>
+                              <SortIcon field="country_name" />
+                            </button>
+                          </TableHead>
 
-                        <TableHead className="w-[120px]">
-                          <button
-                            type="button"
-                            onClick={() => handleSort("protocol")}
-                            className={cn(sortButtonClassName, "justify-start")}
-                          >
-                            <span className={cn(getSortLabelClassName("protocol"), "inline-flex items-center gap-1.5")}>
-                              <Fingerprint className="h-3.5 w-3.5 opacity-70" />
-                              Protocol
-                            </span>
-                            <SortIcon field="protocol" />
-                          </button>
-                        </TableHead>
+                          <TableHead className="w-[120px]">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("protocol")}
+                              className={cn(sortButtonClassName, "justify-start")}
+                            >
+                              <span className={cn(getSortLabelClassName("protocol"), "inline-flex items-center gap-1.5")}>
+                                <Fingerprint className="h-3.5 w-3.5 opacity-70" />
+                                Protocol
+                              </span>
+                              <SortIcon field="protocol" />
+                            </button>
+                          </TableHead>
 
-                        {/* ORG & ASN (統一) */}
-                        <TableHead className="min-w-[220px]">
-                          <span className={cn("text-xs font-semibold flex items-center gap-1.5 h-8", "text-muted-foreground")}>
-                            <ShieldCheck className="h-3.5 w-3.5 opacity-70" />
-                            ORG & ASN
-                          </span>
-                        </TableHead>
+                          {/* ORG & ASN (統一) */}
+                          <TableHead className="min-w-[220px]">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("organization")}
+                              className={cn(sortButtonClassName, "justify-start")}
+                            >
+                              <span className={cn(getSortLabelClassName("organization"), "inline-flex items-center gap-1.5")}>
+                                <ShieldCheck className="h-3.5 w-3.5 opacity-70" />
+                                ORG & ASN
+                              </span>
+                              <SortIcon field="organization" />
+                            </button>
+                          </TableHead>
 
-                        <TableHead className="w-[160px]">
-                          <button
-                            type="button"
-                            onClick={() => handleSort("speed_ms")}
-                            className={cn(sortButtonClassName, "justify-start")}
-                          >
-                            <span className={cn(getSortLabelClassName("speed_ms"), "inline-flex items-center gap-1.5")}>
-                              <Gauge className="h-3.5 w-3.5 opacity-70" />
-                              Speed
-                            </span>
-                            <SortIcon field="speed_ms" />
-                          </button>
-                        </TableHead>
+                          <TableHead className="w-[160px]">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("speed_ms")}
+                              className={cn(sortButtonClassName, "justify-start")}
+                            >
+                              <span className={cn(getSortLabelClassName("speed_ms"), "inline-flex items-center gap-1.5")}>
+                                <Gauge className="h-3.5 w-3.5 opacity-70" />
+                                Speed
+                              </span>
+                              <SortIcon field="speed_ms" />
+                            </button>
+                          </TableHead>
 
-                        {/* Google (統一) */}
-                        <TableHead className="w-[130px]">
-                          <span className={cn("text-xs font-semibold flex items-center gap-1.5 h-8", "text-muted-foreground")}>
-                            <GoogleMonoIcon className="h-3.5 w-3.5 opacity-70" />
-                            Google
-                          </span>
-                        </TableHead>
+                          {/* Google (統一) */}
+                          <TableHead className="w-[130px]">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("is_google")}
+                              className={cn(sortButtonClassName, "justify-start")}
+                            >
+                              <span className={cn(getSortLabelClassName("is_google"), "inline-flex items-center gap-1.5")}>
+                                <GoogleMonoIcon className="h-3.5 w-3.5 opacity-70" />
+                                Google
+                              </span>
+                              <SortIcon field="is_google" />
+                            </button>
+                          </TableHead>
 
-                        <TableHead className="w-[130px] text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleSort("checked_at")}
-                            className={cn(sortButtonClassName, "justify-end")}
-                          >
-                            <span className={cn(getSortLabelClassName("checked_at"), "inline-flex items-center gap-1.5")}>
-                              <Clock3 className="h-3.5 w-3.5 opacity-70" />
-                              Updated
-                            </span>
-                            <SortIcon field="checked_at" />
-                          </button>
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-
-                    <TableBody>
-                      {isLoading && data.length === 0 ? (
-                        <TableSkeleton />
-                      ) : paginatedData.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={8}
-                            className="h-32 text-center text-sm text-muted-foreground"
-                          >
-                            No proxies found matching your criteria.
-                          </TableCell>
+                          <TableHead className="w-[130px] text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("checked_at")}
+                              className={cn(sortButtonClassName, "justify-end")}
+                            >
+                              <span className={cn(getSortLabelClassName("checked_at"), "inline-flex items-center gap-1.5")}>
+                                <Clock3 className="h-3.5 w-3.5 opacity-70" />
+                                Updated
+                              </span>
+                              <SortIcon field="checked_at" />
+                            </button>
+                          </TableHead>
                         </TableRow>
-                      ) : (
-                        paginatedData.map((proxy) => (
-                          <TableRow
-                            key={proxy.id}
-                            className="group transition-all duration-200 hover:bg-muted/40 cursor-default"
-                          >
-                            <TableCell className="font-mono tabular-nums text-sm font-medium text-foreground">{proxy.ip}</TableCell>
+                      </TableHeader>
 
-                            <TableCell className="font-mono tabular-nums text-xs text-muted-foreground">{proxy.port}</TableCell>
-
-                            <TableCell>
-                              <div className="flex items-center gap-2 min-w-0">
-                                {getCountryFlagAssetUrl(proxy.country_code) ? (
-                                  <Image
-                                    src={getCountryFlagAssetUrl(proxy.country_code) ?? ""}
-                                    alt={proxy.country_name ?? proxy.country_code ?? "Unknown country"}
-                                    width={16}
-                                    height={16}
-                                    className="h-4 w-4 shrink-0 rounded-[2px]"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <span
-                                    className="text-base leading-none"
-                                    style={{ fontFamily: emojiFontFamily }}
-                                    role="img"
-                                    aria-label={proxy.country_name ?? proxy.country_code ?? "Unknown country"}
-                                  >
-                                    {getCountryFlagEmoji(proxy.country_code)}
-                                  </span>
-                                )}
-
-                                <div className="min-w-0">
-                                  <div className="text-xs font-medium text-foreground truncate">
-                                    {proxy.geo_status === "resolving" ? "Resolving..." : proxy.country_code ?? "N/A"}
-                                  </div>
-                                  <div className="text-[11px] text-muted-foreground truncate">
-                                    {proxy.geo_status === "resolving" ? "Geo lookup in progress" : proxy.country_name ?? "Unknown"}
-                                  </div>
-                                </div>
-                              </div>
-                            </TableCell>
-
-                            <TableCell>
-                              <Badge
-                                variant="outline"
-                                className="font-medium text-[10.5px] py-0 px-2 uppercase bg-background transition-colors group-hover:bg-muted"
-                              >
-                                {proxy.protocol}
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell className="min-w-[220px]">
-                              <div className="min-w-0">
-                                <div className="text-xs font-medium text-foreground truncate">
-                                  {proxy.geo_status === "resolving" ? "Geo lookup in progress" : proxy.organization ?? "Unknown network"}
-                                </div>
-                                <div className="text-[11px] text-muted-foreground truncate">
-                                  {proxy.geo_status === "resolving" ? "Country and ASN pending" : proxy.asn ?? "ASN unavailable"}
-                                </div>
-                              </div>
-                            </TableCell>
-
-                            <TableCell>
-                              <SpeedIndicator speed={proxy.speed_ms} />
-                            </TableCell>
-
-                            <TableCell>
-                              {proxy.is_google ? (
-                                <Badge
-                                  variant="outline"
-                                  className="bg-emerald-500/8 text-emerald-600 dark:text-emerald-400 border-emerald-500/15 text-[10px] py-0 px-1.5 shadow-sm shadow-emerald-500/5 group-hover:bg-emerald-500/14 transition-colors font-medium"
-                                >
-                                  <ShieldCheck className="w-3 h-3 mr-1" />
-                                  Accessible
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="outline"
-                                  className="bg-destructive/10 text-destructive border-destructive/20 text-[10px] py-0 px-1.5 shadow-sm shadow-destructive/10 group-hover:bg-destructive/20 transition-colors font-medium"
-                                >
-                                  <X className="w-3 h-3 mr-1" />
-                                  Blocked
-                                </Badge>
-                              )}
-                            </TableCell>
-
-                            <TableCell className="text-xs text-muted-foreground text-right group-hover:text-foreground transition-colors">
-                              {formatDistanceToNow(new Date(proxy.checked_at), {
-                                addSuffix: true,
-                              })}
+                      <TableBody>
+                        {isLoading && data.length === 0 ? (
+                          <TableSkeleton />
+                        ) : paginatedData.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={8}
+                              className="h-32 text-center text-sm text-muted-foreground"
+                            >
+                              No proxies found matching your criteria.
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          paginatedData.map((proxy) => (
+                            <TableRow
+                              key={proxy.id}
+                              className="group transition-all duration-200 hover:bg-muted/40 cursor-default"
+                            >
+                              <TableCell className="font-mono tabular-nums text-sm font-medium text-foreground">{proxy.ip}</TableCell>
+
+                              <TableCell className="font-mono tabular-nums text-xs text-muted-foreground">{proxy.port}</TableCell>
+
+                              <TableCell>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  {getCountryFlagAssetUrl(proxy.country_code) ? (
+                                    <Image
+                                      src={getCountryFlagAssetUrl(proxy.country_code) ?? ""}
+                                      alt={proxy.country_name ?? proxy.country_code ?? "Unknown country"}
+                                      width={16}
+                                      height={16}
+                                      className="h-4 w-4 shrink-0 rounded-[2px]"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <span
+                                      className="text-base leading-none"
+                                      style={{ fontFamily: emojiFontFamily }}
+                                      role="img"
+                                      aria-label={proxy.country_name ?? proxy.country_code ?? "Unknown country"}
+                                    >
+                                      {getCountryFlagEmoji(proxy.country_code)}
+                                    </span>
+                                  )}
+
+                                  <div className="min-w-0">
+                                    <div className="text-xs font-medium text-foreground truncate">{proxy.country_code ?? "N/A"}</div>
+                                    <div className="text-[11px] text-muted-foreground truncate">{proxy.country_name ?? "Unknown"}</div>
+                                  </div>
+                                </div>
+                              </TableCell>
+
+                              <TableCell>
+                                <Badge
+                                  variant="outline"
+                                  className="font-medium text-[10.5px] py-0 px-2 uppercase bg-background transition-colors group-hover:bg-muted"
+                                >
+                                  {proxy.protocol}
+                                </Badge>
+                              </TableCell>
+
+                              <TableCell className="min-w-[220px]">
+                                <div className="min-w-0">
+                                  <div className="text-xs font-medium text-foreground truncate">{proxy.organization ?? "Unknown network"}</div>
+                                  <div className="text-[11px] text-muted-foreground truncate">{proxy.asn ?? "ASN unavailable"}</div>
+                                </div>
+                              </TableCell>
+
+                              <TableCell>
+                                <SpeedIndicator speed={proxy.speed_ms} />
+                              </TableCell>
+
+                              <TableCell>
+                                {proxy.is_google ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-emerald-500/8 text-emerald-600 dark:text-emerald-400 border-emerald-500/15 text-[10px] py-0 px-1.5 shadow-sm shadow-emerald-500/5 group-hover:bg-emerald-500/14 transition-colors font-medium"
+                                  >
+                                    <ShieldCheck className="w-3 h-3 mr-1" />
+                                    Accessible
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-destructive/10 text-destructive border-destructive/20 text-[10px] py-0 px-1.5 shadow-sm shadow-destructive/10 group-hover:bg-destructive/20 transition-colors font-medium"
+                                  >
+                                    <X className="w-3 h-3 mr-1" />
+                                    Blocked
+                                  </Badge>
+                                )}
+                              </TableCell>
+
+                              <TableCell className="text-xs text-muted-foreground text-right group-hover:text-foreground transition-colors">
+                                {formatDistanceToNow(new Date(proxy.checked_at), {
+                                  addSuffix: true,
+                                })}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-                <div className="text-xs text-muted-foreground font-medium">
-                  Showing {paginatedData.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredAndSortedData.length)} of <span className="text-foreground">{filteredAndSortedData.length}</span>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 transition-colors hover:bg-muted"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronsLeft className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 transition-colors hover:bg-muted"
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </Button>
-
-                  <div className="flex items-center gap-1 px-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum: number;
-                      if (totalPages <= 5) pageNum = i + 1;
-                      else if (currentPage <= 3) pageNum = i + 1;
-                      else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                      else pageNum = currentPage - 2 + i;
-
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={currentPage === pageNum ? "default" : "ghost"}
-                          size="icon"
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`h-8 w-8 text-xs font-medium ${currentPage === pageNum ? "shadow-sm" : "hover:bg-muted"}`}
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+                  <div className="text-xs text-muted-foreground font-medium">
+                    Showing {paginatedData.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, filteredAndSortedData.length)} of <span className="text-foreground">{filteredAndSortedData.length}</span>
                   </div>
 
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 transition-colors hover:bg-muted"
-                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 transition-colors hover:bg-muted"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronsRight className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 transition-colors hover:bg-muted"
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronsLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 transition-colors hover:bg-muted"
+                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+
+                    <div className="flex items-center gap-1 px-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum: number;
+                        if (totalPages <= 5) pageNum = i + 1;
+                        else if (currentPage <= 3) pageNum = i + 1;
+                        else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                        else pageNum = currentPage - 2 + i;
+
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "ghost"}
+                            size="icon"
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`h-8 w-8 text-xs font-medium ${currentPage === pageNum ? "shadow-sm" : "hover:bg-muted"}`}
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 transition-colors hover:bg-muted"
+                      onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 transition-colors hover:bg-muted"
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronsRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </div>
   );
