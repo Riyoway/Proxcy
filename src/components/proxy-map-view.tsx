@@ -104,6 +104,8 @@ type RenderedMapPoint = MapPoint & {
   renderKey: string;
 };
 
+const emptySubgroupDescriptors = new Map<string, SubgroupDescriptor>();
+
 type ProxyMapViewProps = {
   countryStats: CountryMapStat[];
   onSelectCountry: (countryKey: string | null) => void;
@@ -825,40 +827,58 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
   }, []);
 
   const isSelectedCountryFocused = Boolean(selectedCountryKey && mapTransform.k >= selectedCountryRecordTransitionStart);
+  const selectedCountryRecords = useMemo(() => {
+    if (!selectedCountryKey) {
+      return [];
+    }
+
+    return records.filter((record) => record.countryKey === selectedCountryKey);
+  }, [records, selectedCountryKey]);
   const effectiveRecordTransitionStart = selectedCountryKey ? selectedCountryRecordTransitionStart : recordTransitionStart;
   const effectiveRecordTransitionEnd = selectedCountryKey ? selectedCountryRecordTransitionEnd : recordTransitionEnd;
-  const pointLevel = mapTransform.k >= effectiveRecordTransitionStart
+  const zoomDrivenPointLevel = mapTransform.k >= effectiveRecordTransitionStart
     ? "record"
     : getPointLevel(mapTransform.k);
-  const organizationTransitionProgress = easeInOut(
-    (mapTransform.k - organizationTransitionStart) / (organizationTransitionEnd - organizationTransitionStart),
-  );
-  const subgroupTransitionProgress = easeInOut(
-    (mapTransform.k - subgroupTransitionStart) / (subgroupTransitionEnd - subgroupTransitionStart),
-  );
+  const pointLevel = selectedCountryKey ? zoomDrivenPointLevel : "country";
+  const organizationTransitionProgress = selectedCountryKey
+    ? easeInOut(
+        (mapTransform.k - organizationTransitionStart) / (organizationTransitionEnd - organizationTransitionStart),
+      )
+    : 0;
+  const subgroupTransitionProgress = selectedCountryKey
+    ? easeInOut(
+        (mapTransform.k - subgroupTransitionStart) / (subgroupTransitionEnd - subgroupTransitionStart),
+      )
+    : 0;
   const recordTransitionWindowStart = isSelectedCountryFocused ? selectedCountryRecordTransitionStart : effectiveRecordTransitionStart;
   const recordTransitionWindowEnd = isSelectedCountryFocused ? selectedCountryRecordTransitionEnd : effectiveRecordTransitionEnd;
-  const recordTransitionProgress = easeInOut(
-    (mapTransform.k - recordTransitionWindowStart) / (recordTransitionWindowEnd - recordTransitionWindowStart),
-  );
-  const needsOrganizationLayout = pointLevel !== "country" || organizationTransitionProgress > 0;
-  const needsSubgroupLayout = pointLevel === "subgroup" || pointLevel === "record" || subgroupTransitionProgress > 0;
-  const needsRecordLayout = mapTransform.k >= recordTransitionWindowStart || recordTransitionProgress > 0;
+  const recordTransitionProgress = selectedCountryKey
+    ? easeInOut(
+        (mapTransform.k - recordTransitionWindowStart) / (recordTransitionWindowEnd - recordTransitionWindowStart),
+      )
+    : 0;
+  const needsOrganizationLayout = Boolean(selectedCountryKey) && (zoomDrivenPointLevel !== "country" || organizationTransitionProgress > 0);
+  const needsSubgroupLayout = Boolean(selectedCountryKey) && (zoomDrivenPointLevel === "subgroup" || zoomDrivenPointLevel === "record" || subgroupTransitionProgress > 0);
+  const needsRecordLayout = Boolean(selectedCountryKey) && (mapTransform.k >= recordTransitionWindowStart || recordTransitionProgress > 0);
   const subgroupDescriptors = useMemo(() => {
-    return buildSubgroupDescriptors(records);
-  }, [records]);
+    if (selectedCountryRecords.length === 0) {
+      return emptySubgroupDescriptors;
+    }
+
+    return buildSubgroupDescriptors(selectedCountryRecords);
+  }, [selectedCountryRecords]);
 
   const countryPoints = useMemo(() => {
-    return buildPointLayout(featureByCountryKey, records, "country", subgroupDescriptors);
-  }, [featureByCountryKey, records, subgroupDescriptors]);
+    return buildPointLayout(featureByCountryKey, records, "country", emptySubgroupDescriptors);
+  }, [featureByCountryKey, records]);
 
   const organizationPoints = useMemo(() => {
     if (!needsOrganizationLayout) {
       return [];
     }
 
-    return buildPointLayout(featureByCountryKey, records, "organization", subgroupDescriptors);
-  }, [featureByCountryKey, needsOrganizationLayout, records, subgroupDescriptors]);
+    return buildPointLayout(featureByCountryKey, selectedCountryRecords, "organization", subgroupDescriptors);
+  }, [featureByCountryKey, needsOrganizationLayout, selectedCountryRecords, subgroupDescriptors]);
 
   const organizationPointLookup = useMemo(() => {
     return new Map(organizationPoints.map((point) => [point.key, point]));
@@ -869,8 +889,8 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
       return [];
     }
 
-    return buildPointLayout(featureByCountryKey, records, "subgroup", subgroupDescriptors, organizationPointLookup);
-  }, [featureByCountryKey, needsSubgroupLayout, organizationPointLookup, records, subgroupDescriptors]);
+    return buildPointLayout(featureByCountryKey, selectedCountryRecords, "subgroup", subgroupDescriptors, organizationPointLookup);
+  }, [featureByCountryKey, needsSubgroupLayout, organizationPointLookup, selectedCountryRecords, subgroupDescriptors]);
 
   const subgroupPointLookup = useMemo(() => {
     return new Map(subgroupPoints.map((point) => [point.key, point]));
@@ -881,8 +901,8 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
       return [];
     }
 
-    return buildPointLayout(featureByCountryKey, records, "record", subgroupDescriptors, subgroupPointLookup);
-  }, [featureByCountryKey, needsRecordLayout, records, subgroupDescriptors, subgroupPointLookup]);
+    return buildPointLayout(featureByCountryKey, selectedCountryRecords, "record", subgroupDescriptors, subgroupPointLookup);
+  }, [featureByCountryKey, needsRecordLayout, selectedCountryRecords, subgroupDescriptors, subgroupPointLookup]);
 
   const pointLookup = useMemo(() => {
     return new Map([...countryPoints, ...organizationPoints, ...subgroupPoints, ...recordPoints].map((point) => [point.key, point]));
@@ -892,6 +912,9 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
     const countryLookup = new Map(countryPoints.map((point) => [point.key, point]));
     const organizationLookup = new Map(organizationPoints.map((point) => [point.key, point]));
     const subgroupLookup = new Map(subgroupPoints.map((point) => [point.key, point]));
+    const backgroundCountryPoints = selectedCountryKey
+      ? countryPoints.filter((point) => point.key !== selectedCountryKey)
+      : [];
 
     const createRenderedPoint = (
       point: MapPoint,
@@ -911,6 +934,13 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
         x,
         y,
       };
+    };
+
+    const renderCountryPoints = (points: MapPoint[]): RenderedMapPoint[] => {
+      return points.map((point) => {
+        const radius = getMarkerRadius(point.proxyCount, "country", mapTransform.k);
+        return createRenderedPoint(point, `country:${point.key}`, 1, point.x, point.y, radius, radius + 1.4 / Math.max(mapTransform.k, 1));
+      });
     };
 
     const renderChildPoints = (
@@ -941,23 +971,33 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
       });
     };
 
+    if (!selectedCountryKey) {
+      return renderCountryPoints(countryPoints);
+    }
+
     if (pointLevel === "record" || recordTransitionProgress > 0) {
-      return renderChildPoints(recordPoints, subgroupLookup.size > 0 ? subgroupLookup : organizationLookup, recordTransitionProgress === 0 ? 1 : recordTransitionProgress);
+      return [
+        ...renderCountryPoints(backgroundCountryPoints),
+        ...renderChildPoints(recordPoints, subgroupLookup.size > 0 ? subgroupLookup : organizationLookup, recordTransitionProgress === 0 ? 1 : recordTransitionProgress),
+      ];
     }
 
     if (pointLevel === "subgroup" || subgroupTransitionProgress > 0) {
-      return renderChildPoints(subgroupPoints, organizationLookup, subgroupTransitionProgress === 0 ? 1 : subgroupTransitionProgress);
+      return [
+        ...renderCountryPoints(backgroundCountryPoints),
+        ...renderChildPoints(subgroupPoints, organizationLookup, subgroupTransitionProgress === 0 ? 1 : subgroupTransitionProgress),
+      ];
     }
 
     if (pointLevel === "organization" || organizationTransitionProgress > 0) {
-      return renderChildPoints(organizationPoints, countryLookup, organizationTransitionProgress === 0 ? 1 : organizationTransitionProgress);
+      return [
+        ...renderCountryPoints(backgroundCountryPoints),
+        ...renderChildPoints(organizationPoints, countryLookup, organizationTransitionProgress === 0 ? 1 : organizationTransitionProgress),
+      ];
     }
 
-    return countryPoints.map((point) => {
-      const radius = getMarkerRadius(point.proxyCount, "country", mapTransform.k);
-      return createRenderedPoint(point, `country:${point.key}`, 1, point.x, point.y, radius, radius + 1.4 / Math.max(mapTransform.k, 1));
-    });
-  }, [countryPoints, mapTransform.k, organizationPoints, organizationTransitionProgress, pointLevel, recordPoints, recordTransitionProgress, subgroupPoints, subgroupTransitionProgress]);
+    return renderCountryPoints(countryPoints);
+  }, [countryPoints, mapTransform.k, organizationPoints, organizationTransitionProgress, pointLevel, recordPoints, recordTransitionProgress, selectedCountryKey, subgroupPoints, subgroupTransitionProgress]);
 
   const hoveredPoint = hoveredPointKey ? pointLookup.get(hoveredPointKey) ?? null : null;
   const selectedPoint = selectedPointKey && pointLookup.has(selectedPointKey)
@@ -1213,8 +1253,8 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                 ) : (
                   <>
                     <span className="font-medium text-zinc-200">Map guide</span>
-                    <span>Hover for a quick preview, or click a pin or country to inspect checked free proxies.</span>
-                    <span>Zoom in to expand clusters from countries to networks and individual proxies.</span>
+                    <span>Hover for a quick preview, then click a country to drill into its networks and individual proxies.</span>
+                    <span>The world map stays grouped by country until a country is selected, which keeps exploration responsive.</span>
                   </>
                 )}
               </div>
