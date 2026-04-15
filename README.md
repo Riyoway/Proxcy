@@ -5,8 +5,18 @@ A fully free, open-source proxy checker and real-time dashboard built with Next.
 ## ✨ Features
 - **All-TypeScript Architecture**: Both checker and web UI are built with TypeScript (Node.js & Next.js).
 - **Real-time Dashboard**: Beautiful UI powered by `@21st-dev/magic` (shadcn/ui + Tailwind CSS).
+- **Interactive Map Drilldown**: The map starts with country-level clusters for fast world exploration, then expands into network and proxy detail only after you select a country.
 - **Zero Cost**: Hosted on Vercel (UI), checked via GitHub Actions (Checker), and stored in Supabase (PostgreSQL).
 - **Public Endpoints**: Download `valid.txt` and `google.txt` directly from the web.
+
+---
+
+## 🗺️ Map Behavior
+
+- Proxy locations are approximate and derived from country-level metadata rather than exact server coordinates.
+- The default world view stays grouped by country to keep rendering responsive.
+- Detailed network / subgroup / individual proxy drilldown is computed only for the selected country.
+- This country-first drilldown strategy is intentional and reduces initial rendering cost for large proxy datasets.
 
 ---
 

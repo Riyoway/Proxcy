@@ -199,6 +199,20 @@ function easeInOut(value: number): number {
   return 1 - Math.pow(-2 * clamped + 2, 2) / 2;
 }
 
+function formatRelativeTime(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return formatDistanceToNowStrict(date, { addSuffix: true });
+}
+
 function getPointLevel(zoomScale: number): PointDetailLevel {
   if (zoomScale >= recordTransitionStart) {
     return "record";
@@ -1110,6 +1124,46 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
 
   const topCountries = countryStats;
   const activePoint = hoveredPoint ?? selectedPoint;
+  const pointLevelLabel = pointLevel === "country"
+    ? "Country groups"
+    : pointLevel === "organization"
+      ? "Network groups"
+      : pointLevel === "subgroup"
+        ? "Subgroups"
+        : "Proxy pins";
+  const focusModeLabel = selectedCountry ? "Country focus" : "World overview";
+  const mapHint = selectedCountry
+    ? pointLevel === "country"
+      ? "Zoom in to reveal networks inside the selected country."
+      : pointLevel === "organization"
+        ? "Select a network cluster to inspect grouped proxies."
+        : pointLevel === "subgroup"
+          ? "Select a subgroup to narrow dense results before opening individual proxies."
+          : "Select a proxy pin to inspect its endpoint, protocol, and latency."
+    : "Select a country from the map or Top Regions to open network and proxy drilldown.";
+  const selectedCountryGoogleRate = selectedCountry && selectedCountry.proxyCount > 0
+    ? Math.round((selectedCountry.googleCount / selectedCountry.proxyCount) * 100)
+    : null;
+  const selectedCountryUpdatedAt = selectedCountry
+    ? formatRelativeTime(selectedCountry.latestCheckedAt)
+    : null;
+
+  const handleSelectCountryFocus = (countryKey: string | null) => {
+    setHoveredPointKey(null);
+    setSelectedPointKey(null);
+    onSelectCountry(countryKey);
+  };
+
+  const handleSelectPoint = (point: RenderedMapPoint) => {
+    setHoveredPointKey(null);
+    setSelectedPointKey(point.key);
+    onSelectCountry(point.countryKey);
+  };
+
+  const handleClearPointSelection = () => {
+    setHoveredPointKey(null);
+    setSelectedPointKey(null);
+  };
 
   return (
     <Card className="relative overflow-hidden border-zinc-800/90 bg-[#0d0d0e] text-zinc-100 shadow-sm">
@@ -1124,19 +1178,22 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
               </Badge>
             </div>
             <p className="max-w-[820px] text-xs text-zinc-400">
-              Map note: proxy locations are approximate. This free proxy checker groups results by country and network because exact server coordinates are not included in the source data.
+              Map note: proxy locations are approximate. The world view stays grouped by country for responsiveness, and deeper network and proxy drilldown is only expanded after you select a country.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="gap-1 border-zinc-700/80 bg-zinc-900/70 text-zinc-300">
+              {focusModeLabel}
+            </Badge>
             {selectedCountry ? (
               <Badge variant="outline" className="gap-1 border-zinc-700/80 bg-zinc-900/70 text-zinc-300">
                 {selectedCountry.displayName}
               </Badge>
             ) : null}
             {selectedCountryKey ? (
-              <Button variant="outline" size="sm" className="border-zinc-700/80 bg-zinc-900/70 text-xs text-zinc-100 hover:bg-zinc-800" onClick={() => onSelectCountry(null)}>
+              <Button variant="outline" size="sm" className="border-zinc-700/80 bg-zinc-900/70 text-xs text-zinc-100 hover:bg-zinc-800" onClick={() => handleSelectCountryFocus(null)}>
                 <LocateFixed className="mr-2 h-3.5 w-3.5" />
-                Clear filter
+                Back to world
               </Button>
             ) : null}
           </div>
@@ -1148,18 +1205,24 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
             <div className="relative bg-[linear-gradient(180deg,rgba(18,18,20,0.98),rgba(8,8,9,1))]">
               <div className="absolute left-3 top-3 z-10 flex flex-wrap items-center gap-2">
                 <Badge variant="secondary" className="rounded-md border border-zinc-700/80 bg-black/85 px-2 py-1 text-[11px] font-medium text-zinc-200">
-                  {pointLevel === "country" ? "Country groups" : pointLevel === "organization" ? "Network groups" : pointLevel === "subgroup" ? "Subgroups" : "Proxy pins"}
+                  {pointLevelLabel}
+                </Badge>
+                <Badge variant="outline" className="rounded-md border border-zinc-700/80 bg-black/80 px-2 py-1 text-[11px] text-zinc-300">
+                  {focusModeLabel}
                 </Badge>
                 <div className="hidden items-center gap-1 rounded-md border border-zinc-800/80 bg-black/80 px-2 py-1 text-[11px] text-zinc-400 md:inline-flex">
                   <Move className="h-3.5 w-3.5" />
-                  Drag to explore, scroll to zoom
+                  {selectedCountry ? mapHint : "Drag to explore, scroll to zoom, or select a country to drill down"}
                 </div>
               </div>
               <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-xl border border-zinc-800/80 bg-black/80 px-2 py-1.5">
-                <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-zinc-700/80 bg-zinc-900/70 text-zinc-100 hover:bg-zinc-800" onClick={() => handleZoom(1.25)}>
+                <div className="hidden min-w-[56px] items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900/70 px-2 py-1 text-[11px] font-medium text-zinc-300 sm:inline-flex">
+                  {Math.round(mapTransform.k * 100)}%
+                </div>
+                <Button type="button" variant="outline" size="icon" aria-label="Zoom in" className="h-8 w-8 border-zinc-700/80 bg-zinc-900/70 text-zinc-100 hover:bg-zinc-800" onClick={() => handleZoom(1.25)}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
-                <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-zinc-700/80 bg-zinc-900/70 text-zinc-100 hover:bg-zinc-800" onClick={() => handleZoom(0.8)}>
+                <Button type="button" variant="outline" size="icon" aria-label="Zoom out" className="h-8 w-8 border-zinc-700/80 bg-zinc-900/70 text-zinc-100 hover:bg-zinc-800" onClick={() => handleZoom(0.8)}>
                   <Minus className="h-3.5 w-3.5" />
                 </Button>
                 <Button type="button" variant="outline" size="sm" className="h-8 border-zinc-700/80 bg-zinc-900/70 text-xs text-zinc-100 hover:bg-zinc-800" onClick={handleReset}>
@@ -1217,10 +1280,7 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                         className="cursor-pointer"
                         onMouseEnter={() => setHoveredPointKey(point.key)}
                         onMouseLeave={() => setHoveredPointKey(null)}
-                        onClick={() => {
-                          setSelectedPointKey(point.key);
-                          onSelectCountry(point.countryKey);
-                        }}
+                        onClick={() => handleSelectPoint(point)}
                         style={{ opacity: point.opacity, transition: "opacity 160ms ease-out" }}
                       >
                         {isHovered || isSelected ? (
@@ -1252,9 +1312,9 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                   </>
                 ) : (
                   <>
-                    <span className="font-medium text-zinc-200">Map guide</span>
-                    <span>Hover for a quick preview, then click a country to drill into its networks and individual proxies.</span>
-                    <span>The world map stays grouped by country until a country is selected, which keeps exploration responsive.</span>
+                    <span className="font-medium text-zinc-200">{selectedCountry ? `${selectedCountry.displayName} focus` : "Map guide"}</span>
+                    <span>{selectedCountry ? mapHint : "1. Select a country  2. Zoom in  3. Select a network or proxy pin"}</span>
+                    <span>{selectedCountry ? "Back to world returns to country-level clusters." : "The world map stays grouped by country until a country is selected, which keeps exploration responsive."}</span>
                   </>
                 )}
               </div>
@@ -1278,6 +1338,11 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                         <Badge variant="outline" className="shrink-0 border-zinc-700/70 bg-zinc-900/70 text-[11px] font-medium text-zinc-200">
                           {selectedPoint.records[0].protocol.toUpperCase()}
                         </Badge>
+                      ) : null}
+                      {selectedCountryKey ? (
+                        <Button type="button" variant="outline" size="sm" className="h-7 border-zinc-700/80 bg-zinc-900/70 px-2.5 text-[11px] text-zinc-200 hover:bg-zinc-800" onClick={handleClearPointSelection}>
+                          Back to country
+                        </Button>
                       ) : null}
                     </div>
                   </div>
@@ -1311,7 +1376,7 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                         <div className="rounded-xl border border-zinc-800/80 bg-black/35 p-3">
                           <div className="text-[11px] text-zinc-400">Updated</div>
                           <div className="mt-1 font-medium text-zinc-100">
-                            {formatDistanceToNowStrict(new Date(selectedPoint.records[0].checkedAt), { addSuffix: true })}
+                            {formatRelativeTime(selectedPoint.records[0].checkedAt) ?? "Unknown"}
                           </div>
                         </div>
                       </div>
@@ -1365,20 +1430,73 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                 </>
               ) : (
                 <>
-                  <div className="mb-3 text-sm font-semibold text-zinc-100">Top Regions</div>
+                  {selectedCountry ? (
+                    <div className="mb-4 rounded-xl border border-zinc-800/80 bg-black/35 p-3.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">Focused country</div>
+                          <div className="mt-1 truncate text-sm font-semibold text-zinc-100">{selectedCountry.displayName}</div>
+                          <div className="mt-1 text-[11px] leading-relaxed text-zinc-400">{mapHint}</div>
+                        </div>
+                        <Badge variant="outline" className="shrink-0 border-zinc-700/70 bg-zinc-900/70 text-[11px] text-zinc-200">
+                          {pointLevelLabel}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/70 p-3">
+                          <div className="text-[11px] text-zinc-400">Proxies</div>
+                          <div className="mt-1 font-semibold text-zinc-100">{selectedCountry.proxyCount.toLocaleString()}</div>
+                        </div>
+                        <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/70 p-3">
+                          <div className="text-[11px] text-zinc-400">Google ready</div>
+                          <div className="mt-1 font-semibold text-zinc-100">{selectedCountryGoogleRate ?? 0}%</div>
+                        </div>
+                        <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/70 p-3">
+                          <div className="text-[11px] text-zinc-400">Fastest</div>
+                          <div className="mt-1 font-semibold text-zinc-100">{selectedCountry.fastestSpeedMs}ms</div>
+                        </div>
+                        <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/70 p-3">
+                          <div className="text-[11px] text-zinc-400">Updated</div>
+                          <div className="mt-1 font-semibold text-zinc-100">{selectedCountryUpdatedAt ?? "Unknown"}</div>
+                        </div>
+                      </div>
+                      <Button type="button" variant="outline" size="sm" className="mt-3 w-full border-zinc-700/80 bg-zinc-900/70 text-xs text-zinc-100 hover:bg-zinc-800" onClick={() => handleSelectCountryFocus(null)}>
+                        Back to world
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mb-4 rounded-xl border border-zinc-800/80 bg-black/35 p-3.5">
+                      <div className="text-sm font-semibold text-zinc-100">How to explore</div>
+                      <div className="mt-2 space-y-1.5 text-[12px] leading-relaxed text-zinc-400">
+                        <div>1. Select a country from the map or Top Regions.</div>
+                        <div>2. Zoom in to reveal networks and denser proxy clusters.</div>
+                        <div>3. Click a point to lock its details in this panel.</div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="mb-3 flex items-end justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-zinc-100">Top Regions</div>
+                      <div className="mt-1 text-[11px] text-zinc-400">
+                        {selectedCountry ? "Switch focus or compare another country." : "Choose a country to start drilldown."}
+                      </div>
+                    </div>
+                    <div className="rounded-md border border-zinc-800/80 bg-zinc-950/70 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-zinc-500">
+                      {topCountries.length}
+                    </div>
+                  </div>
                   <div className="ui-scrollbar max-h-[70vh] space-y-2 overflow-y-auto pr-2">
                     {topCountries.map((country) => {
                       const isSelected = selectedCountryKey === country.key;
                       const flagIconSrc = getCountryFlagIconSrc(country.countryCode);
+                      const googleAvailabilityRate = country.proxyCount > 0 ? Math.round((country.googleCount / country.proxyCount) * 100) : 0;
 
                       return (
                         <button
                           key={country.key}
                           type="button"
-                          onClick={() => {
-                            setSelectedPointKey(null);
-                            onSelectCountry(isSelected ? null : country.key);
-                          }}
+                          aria-pressed={isSelected}
+                          onClick={() => handleSelectCountryFocus(isSelected ? null : country.key)}
                           className={cn(
                             "flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left transition-colors",
                             isSelected
@@ -1387,7 +1505,14 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                           )}
                         >
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-medium text-zinc-100">{country.displayName}</div>
+                            <div className="flex items-center gap-2">
+                              <div className="truncate text-sm font-medium text-zinc-100">{country.displayName}</div>
+                              {isSelected ? (
+                                <Badge variant="outline" className="shrink-0 border-zinc-600/80 bg-zinc-900/80 text-[10px] text-zinc-200">
+                                  Focused
+                                </Badge>
+                              ) : null}
+                            </div>
                             <div className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-400">
                               {flagIconSrc ? (
                                 <span
@@ -1397,11 +1522,11 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
                                   style={{ backgroundImage: `url(${flagIconSrc})` }}
                                 />
                               ) : (
-                                <span role="img" aria-label={`${country.displayName} flag unavailable`} className="text-sm leading-none">
-                                  🌐
+                                <span aria-label={`${country.displayName} country code`} className="inline-flex h-[14px] min-w-[18px] items-center justify-center rounded-[2px] border border-zinc-700/70 bg-zinc-900/80 px-1 text-[9px] font-semibold uppercase leading-none text-zinc-300">
+                                  {country.countryCode ?? "??"}
                                 </span>
                               )}
-                              <span>Google OK {country.googleCount.toLocaleString()} / {country.proxyCount.toLocaleString()}</span>
+                              <span>Google OK {country.googleCount.toLocaleString()} / {country.proxyCount.toLocaleString()} · {googleAvailabilityRate}%</span>
                             </div>
                           </div>
                           <div
