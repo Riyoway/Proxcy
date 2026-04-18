@@ -123,6 +123,8 @@ const recordTransitionStart = 11.1;
 const recordTransitionEnd = 14.2;
 const selectedCountryRecordTransitionStart = 9.15;
 const selectedCountryRecordTransitionEnd = 11.75;
+const minMapZoomScale = 1;
+const maxMapZoomScale = 18;
 const mapFrameFeature: Feature<Geometry> = {
   type: "Feature",
   properties: null,
@@ -1036,6 +1038,7 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
     const svg = select(svgRef.current);
     const zoomBehavior = zoom<SVGSVGElement, unknown>()
       .extent([[0, 0], [mapWidth, mapHeight]])
+      .scaleExtent([minMapZoomScale, maxMapZoomScale])
       .translateExtent([[-mapWidth * 0.45, -mapHeight * 0.3], [mapWidth * 1.45, mapHeight * 1.3]])
       .on("zoom", (event) => {
         pendingTransformRef.current = event.transform;
@@ -1217,7 +1220,7 @@ export function ProxyMapView({ countryStats, onSelectCountry, records, selectedC
               </div>
               <div className="absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-xl border border-zinc-800/80 bg-black/80 px-2 py-1.5">
                 <div className="hidden min-w-[56px] items-center justify-center rounded-md border border-zinc-800/80 bg-zinc-900/70 px-2 py-1 text-[11px] font-medium text-zinc-300 sm:inline-flex">
-                  {Math.round(mapTransform.k * 100)}%
+                  {mapTransform.k.toFixed(mapTransform.k >= 10 ? 0 : 1)}x
                 </div>
                 <Button type="button" variant="outline" size="icon" aria-label="Zoom in" className="h-8 w-8 border-zinc-700/80 bg-zinc-900/70 text-zinc-100 hover:bg-zinc-800" onClick={() => handleZoom(1.25)}>
                   <Plus className="h-3.5 w-3.5" />
