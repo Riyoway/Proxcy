@@ -1,0 +1,20 @@
+export const chartTheme = {
+  grid: "rgba(113, 113, 122, 0.18)",
+  axis: "rgba(161, 161, 170, 0.85)",
+  tooltipBg: "rgba(24, 24, 27, 0.95)",
+  tooltipBorder: "rgba(63, 63, 70, 0.8)",
+  tooltipText: "#e4e4e7",
+  palette: [
+    "#60a5fa",
+    "#a78bfa",
+    "#34d399",
+    "#fbbf24",
+    "#f472b6",
+    "#f87171",
+    "#38bdf8",
+    "#c084fc",
+  ],
+  primary: "#60a5fa",
+  success: "#34d399",
+  danger: "#f87171",
+};

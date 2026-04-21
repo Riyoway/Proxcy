@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { formatDistanceToNow } from "date-fns";
-import { Search, Download, ChevronDown, ChevronUp, ChevronsUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Globe, Cable, MapPinned, ShieldCheck, Gauge, Clock3, Fingerprint } from "lucide-react";
+import { Search, Download, ChevronDown, ChevronUp, ChevronsUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Globe, Cable, MapPinned, ShieldCheck, Gauge, Clock3, Fingerprint, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -535,6 +536,16 @@ const ProxyDashboard: React.FC = () => {
               Last sync: {formatDistanceToNow(lastRefreshed, { addSuffix: true })}
               {isRefreshing && <span className="ui-pulse-dot inline-flex h-1.5 w-1.5 rounded-full bg-primary" />}
             </span>
+            <Link href="/stats">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-4 text-xs transition-colors hover:bg-muted font-medium"
+              >
+                <BarChart3 className="h-3.5 w-3.5 mr-2" />
+                Statistics
+              </Button>
+            </Link>
             <Button
               variant="outline"
               size="sm"
