@@ -12,7 +12,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET() {
   try {
-    const allIds: string[] = [];
+    const allIds = new Set<string>();
     let from = 0;
     const step = 1000;
     let hasMore = true;
@@ -28,7 +28,7 @@ export async function GET() {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        allIds.push(...data.map((p) => p.id));
+        data.forEach((p) => allIds.add(p.id));
         if (data.length < step) {
           hasMore = false;
         } else {
@@ -38,10 +38,10 @@ export async function GET() {
         hasMore = false;
       }
       
-      if (allIds.length >= 50000) break;
+      if (allIds.size >= 50000) break;
     }
 
-    const proxyList = allIds.join('\n');
+    const proxyList = Array.from(allIds).join('\n');
 
     return new NextResponse(proxyList, {
       headers: {

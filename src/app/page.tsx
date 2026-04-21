@@ -207,7 +207,7 @@ const ProxyDashboard: React.FC = () => {
     }
 
     try {
-      const allProxies: ProxyRecord[] = [];
+      const allProxiesMap = new Map<string, ProxyRecord>();
       let from = 0;
       const step = 1000;
       let hasMore = true;
@@ -217,6 +217,7 @@ const ProxyDashboard: React.FC = () => {
           .from("proxies")
           .select("*")
           .order("checked_at", { ascending: false })
+          .order("id", { ascending: false }) // 安定したソート順を保証
           .range(from, from + step - 1);
 
         if (error) {
@@ -224,7 +225,9 @@ const ProxyDashboard: React.FC = () => {
         }
 
         if (chunk && chunk.length > 0) {
-          allProxies.push(...(chunk as ProxyRecord[]));
+          // IDをキーにしてMapに格納することで重複を自動排除
+          chunk.forEach((p) => allProxiesMap.set(p.id, p as ProxyRecord));
+          
           if (chunk.length < step) {
             hasMore = false;
           } else {
@@ -234,12 +237,11 @@ const ProxyDashboard: React.FC = () => {
           hasMore = false;
         }
         
-        // Safety break to prevent infinite loops if something goes wrong
-        if (allProxies.length >= 50000) break;
+        if (allProxiesMap.size >= 50000) break;
       }
 
       setLoadError(null);
-      setData(allProxies);
+      setData(Array.from(allProxiesMap.values()));
       setLastRefreshed(new Date());
     } catch (err) {
       setLoadError("Unexpected error while loading proxy records. Check the browser console and Supabase configuration.");
