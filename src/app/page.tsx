@@ -191,7 +191,7 @@ const ProxyDashboard: React.FC = () => {
   const [sortField, setSortField] = useState<SortField>("checked_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(15);
+  const [pageSize] = useState(25);
   const [protocolFilters, setProtocolFilters] = useState<Set<string>>(new Set());
   const [googleAccessFilter, setGoogleAccessFilter] = useState<"all" | "yes" | "no">("all");
   const [selectedCountryKey, setSelectedCountryKey] = useState<string | null>(null);
@@ -520,29 +520,29 @@ const ProxyDashboard: React.FC = () => {
   const getSortIconClassName = (field: SortField) => cn("ml-2 h-3 w-3 transition-opacity", sortField === field ? "opacity-100 text-foreground" : "opacity-45 group-hover:opacity-70");
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-8 font-sans text-foreground selection:bg-primary/20">
-      <div className="max-w-[1400px] mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-2 md:p-4 font-sans text-foreground selection:bg-primary/20">
+      <div className="max-w-[1400px] mx-auto space-y-3">
         {/* Header Section */}
-        <div className={cn("flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8", sectionMotionClassName)}>
+        <div className={cn("flex flex-col md:flex-row md:items-end justify-between gap-3 mb-1", sectionMotionClassName)}>
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold tracking-tight">Free Proxy Checker</h1>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-2xl font-bold tracking-tight">Free Proxy Checker</h1>
             </div>
-            <p className="text-sm text-muted-foreground max-w-[600px]">Check free proxies by speed, location, and Google access.</p>
+            <p className="text-xs text-muted-foreground max-w-[600px]">Check free proxies by speed, location, and Google access.</p>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-muted-foreground flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] text-muted-foreground flex items-center gap-1.5">
               Last sync: {formatDistanceToNow(lastRefreshed, { addSuffix: true })}
-              {isRefreshing && <span className="ui-pulse-dot inline-flex h-1.5 w-1.5 rounded-full bg-primary" />}
+              {isRefreshing && <span className="ui-pulse-dot inline-flex h-1 w-1 rounded-full bg-primary" />}
             </span>
             <Button
               variant="outline"
               size="sm"
-              className="h-9 px-4 text-xs transition-colors hover:bg-muted font-medium"
+              className="h-8 px-3 text-[11px] transition-colors hover:bg-muted font-medium"
               onClick={fetchProxies}
               disabled={isLoading}
             >
-              <RefreshCw className={`h-3.5 w-3.5 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+              <RefreshCw className={`h-3 w-3 mr-1.5 ${isLoading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
           </div>
@@ -558,29 +558,29 @@ const ProxyDashboard: React.FC = () => {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Card
             className={cn("bg-card/70 border-border/50 transition-colors duration-200 hover:border-border", cardMotionClassName)}
             style={{ animationDelay: "80ms" }}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Valid Proxies</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+              <CardTitle className="text-xs font-semibold text-muted-foreground">Valid Proxies</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold tracking-tight">{validCount.toLocaleString()}</div>
-              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">Working proxies</div>
+            <CardContent className="pb-3">
+              <div className="text-2xl font-bold tracking-tight">{validCount.toLocaleString()}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">Working proxies</div>
             </CardContent>
           </Card>
           <Card
             className={cn("bg-card/70 border-border/50 transition-colors duration-200 hover:border-border", cardMotionClassName)}
             style={{ animationDelay: "140ms" }}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Google Accessible</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+              <CardTitle className="text-xs font-semibold text-muted-foreground">Google Accessible</CardTitle>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
-                className="w-4 h-4 opacity-80"
+                className="w-3.5 h-3.5 opacity-80"
               >
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -600,22 +600,22 @@ const ProxyDashboard: React.FC = () => {
                 />
               </svg>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold tracking-tight">{googleCount.toLocaleString()}</div>
-              <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">Can reach Google</div>
+            <CardContent className="pb-3">
+              <div className="text-2xl font-bold tracking-tight">{googleCount.toLocaleString()}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">Can reach Google</div>
             </CardContent>
           </Card>
           <Card
             className={cn("bg-card/70 border-border/50 transition-colors duration-200 hover:border-border", cardMotionClassName)}
             style={{ animationDelay: "200ms" }}
           >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">System Status</CardTitle>
-              <div className="inline-flex h-3 w-3 rounded-full bg-green-500/90 ring-2 ring-green-500/20"></div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1.5">
+              <CardTitle className="text-xs font-semibold text-muted-foreground">System Status</CardTitle>
+              <div className="inline-flex h-2.5 w-2.5 rounded-full bg-green-500/90 ring-2 ring-green-500/20"></div>
             </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold tracking-tight text-foreground">Online</div>
-              <div className="text-xs text-muted-foreground mt-1">Background checks are running</div>
+            <CardContent className="pb-3">
+              <div className="text-2xl font-bold tracking-tight text-foreground">Online</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Background checks are running</div>
             </CardContent>
           </Card>
         </div>
@@ -624,17 +624,17 @@ const ProxyDashboard: React.FC = () => {
           className={sectionMotionClassName}
           style={{ animationDelay: "230ms" }}
         >
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between rounded-2xl border border-border/50 bg-card/80 px-4 py-3">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between rounded-xl border border-border/50 bg-card/80 px-4 py-2">
             <div>
-              <div className="text-sm font-semibold text-foreground">Browse Results</div>
-              <div className="text-xs text-muted-foreground">View checked proxies in a table or on the map.</div>
+              <div className="text-xs font-semibold text-foreground leading-tight">Browse Results</div>
+              <div className="text-[10px] text-muted-foreground leading-tight">View checked proxies in a table or on the map.</div>
             </div>
-            <div className="inline-flex items-center rounded-lg border border-border/50 bg-background/60 p-1">
+            <div className="inline-flex items-center rounded-lg border border-border/50 bg-background/60 p-0.5">
               <Button
                 type="button"
                 variant={viewMode === "list" ? "secondary" : "ghost"}
                 size="sm"
-                className={cn("h-8 rounded-md px-3 text-xs", viewMode === "list" ? "shadow-none" : "text-muted-foreground")}
+                className={cn("h-7 rounded-md px-3 text-[11px]", viewMode === "list" ? "shadow-none" : "text-muted-foreground")}
                 onClick={() => setViewMode("list")}
               >
                 Table
@@ -643,7 +643,7 @@ const ProxyDashboard: React.FC = () => {
                 type="button"
                 variant={viewMode === "map" ? "secondary" : "ghost"}
                 size="sm"
-                className={cn("h-8 rounded-md px-3 text-xs", viewMode === "map" ? "shadow-none" : "text-muted-foreground")}
+                className={cn("h-7 rounded-md px-3 text-[11px]", viewMode === "map" ? "shadow-none" : "text-muted-foreground")}
                 onClick={() => setViewMode("map")}
               >
                 Map
@@ -678,26 +678,26 @@ const ProxyDashboard: React.FC = () => {
             <div className={cn("pointer-events-none absolute inset-x-4 top-0 h-px overflow-hidden rounded-full opacity-0 transition-opacity duration-300", isRefreshing && "opacity-100")}>
               <div className="ui-loading-bar h-full w-full" />
             </div>
-            <CardHeader className="border-b border-border/40 pb-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <CardHeader className="border-b border-border/40 py-2 px-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div>
-                  <CardTitle className="text-lg font-bold tracking-tight">Records</CardTitle>
+                  <CardTitle className="text-base font-bold tracking-tight">Records</CardTitle>
                 </div>
                 <Badge
                   variant="secondary"
-                  className="font-sans px-2.5 py-0.5"
+                  className="font-sans px-2 py-0.5 text-[10px]"
                 >
                   {filteredAndSortedData.length} visible results
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="pt-4">
-              <div className="space-y-4">
+            <CardContent className="p-0">
+              <div className="p-2 border-b border-border/30 bg-muted/10">
                 {/* Filters & Search */}
                 <div className={toolbarSurfaceClassName}>
                   <div className="flex flex-col md:flex-row md:items-center gap-1.5">
                     <div className="relative flex-1 min-w-0 md:min-w-[320px]">
-                      <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
                       <Input
                         placeholder="Search IP, Port, Country, ASN..."
                         value={searchQuery}
@@ -705,7 +705,7 @@ const ProxyDashboard: React.FC = () => {
                           setSearchQuery(e.target.value);
                           setCurrentPage(1);
                         }}
-                        className={searchInputClassName}
+                        className={cn(searchInputClassName, "h-8 pl-8 text-xs")}
                         aria-label="Search proxies"
                       />
                     </div>
@@ -862,7 +862,7 @@ const ProxyDashboard: React.FC = () => {
                     <Table>
                       <TableHeader className="bg-transparent">
                         <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-[180px]">
+                          <TableHead className="w-[140px]">
                             <button
                               type="button"
                               onClick={() => handleSort("ip")}
@@ -870,20 +870,19 @@ const ProxyDashboard: React.FC = () => {
                             >
                               <span className={cn(getSortLabelClassName("ip"), "inline-flex items-center gap-1.5")}>
                                 <Globe className="h-3.5 w-3.5 opacity-70" />
-                                IP
+                                IP Address
                               </span>
                               <SortIcon field="ip" />
                             </button>
                           </TableHead>
 
-                          <TableHead className="w-[90px]">
+                          <TableHead className="w-[80px]">
                             <button
                               type="button"
                               onClick={() => handleSort("port")}
                               className={cn(sortButtonClassName, "justify-start")}
                             >
                               <span className={cn(getSortLabelClassName("port"), "inline-flex items-center gap-1.5")}>
-                                <Cable className="h-3.5 w-3.5 opacity-70" />
                                 Port
                               </span>
                               <SortIcon field="port" />
@@ -919,21 +918,21 @@ const ProxyDashboard: React.FC = () => {
                           </TableHead>
 
                           {/* ORG & ASN (統一) */}
-                          <TableHead className="min-w-[220px]">
+                          <TableHead className="max-w-[180px]">
                             <button
                               type="button"
                               onClick={() => handleSort("organization")}
-                              className={cn(sortButtonClassName, "justify-start")}
+                              className={cn(sortButtonClassName, "justify-start w-full")}
                             >
-                              <span className={cn(getSortLabelClassName("organization"), "inline-flex items-center gap-1.5")}>
-                                <ShieldCheck className="h-3.5 w-3.5 opacity-70" />
-                                ORG & ASN
+                              <span className={cn(getSortLabelClassName("organization"), "inline-flex items-center gap-1.5 truncate")}>
+                                <ShieldCheck className="h-3.5 w-3.5 opacity-70 shrink-0" />
+                                <span className="truncate">ORG & ASN</span>
                               </span>
                               <SortIcon field="organization" />
                             </button>
                           </TableHead>
 
-                          <TableHead className="w-[160px]">
+                          <TableHead className="w-[120px]">
                             <button
                               type="button"
                               onClick={() => handleSort("speed_ms")}
@@ -948,7 +947,7 @@ const ProxyDashboard: React.FC = () => {
                           </TableHead>
 
                           {/* Google (統一) */}
-                          <TableHead className="w-[130px]">
+                          <TableHead className="w-[110px]">
                             <button
                               type="button"
                               onClick={() => handleSort("is_google")}
@@ -962,7 +961,7 @@ const ProxyDashboard: React.FC = () => {
                             </button>
                           </TableHead>
 
-                          <TableHead className="w-[130px] text-right">
+                          <TableHead className="w-[120px] text-right">
                             <button
                               type="button"
                               onClick={() => handleSort("checked_at")}
@@ -996,11 +995,11 @@ const ProxyDashboard: React.FC = () => {
                               key={proxy.id}
                               className="group transition-all duration-200 hover:bg-muted/40 cursor-default"
                             >
-                              <TableCell className="font-mono tabular-nums text-sm font-medium text-foreground">{proxy.ip}</TableCell>
+                              <TableCell className="w-[140px] py-1.5 font-mono tabular-nums text-sm font-medium text-foreground">{proxy.ip}</TableCell>
 
-                              <TableCell className="font-mono tabular-nums text-xs text-muted-foreground">{proxy.port}</TableCell>
+                              <TableCell className="w-[80px] py-1.5 font-mono tabular-nums text-xs text-muted-foreground">{proxy.port}</TableCell>
 
-                              <TableCell>
+                              <TableCell className="w-[140px] py-1.5">
                                 <div className="flex items-center gap-2 min-w-0">
                                   {getCountryFlagAssetUrl(proxy.country_code) ? (
                                     <Image
@@ -1029,7 +1028,7 @@ const ProxyDashboard: React.FC = () => {
                                 </div>
                               </TableCell>
 
-                              <TableCell>
+                              <TableCell className="w-[120px] py-1.5">
                                 <Badge
                                   variant="outline"
                                   className="font-medium text-[10.5px] py-0 px-2 uppercase bg-background transition-colors group-hover:bg-muted"
@@ -1038,18 +1037,18 @@ const ProxyDashboard: React.FC = () => {
                                 </Badge>
                               </TableCell>
 
-                              <TableCell className="min-w-[220px]">
+                              <TableCell className="max-w-[180px] py-1.5">
                                 <div className="min-w-0">
                                   <div className="text-xs font-medium text-foreground truncate">{proxy.organization ?? "Unknown network"}</div>
                                   <div className="text-[11px] text-muted-foreground truncate">{proxy.asn ?? "ASN unavailable"}</div>
                                 </div>
                               </TableCell>
 
-                              <TableCell>
+                              <TableCell className="py-1.5">
                                 <SpeedIndicator speed={proxy.speed_ms} />
                               </TableCell>
 
-                              <TableCell>
+                              <TableCell className="py-1.5">
                                 {proxy.is_google ? (
                                   <Badge
                                     variant="outline"
@@ -1069,7 +1068,7 @@ const ProxyDashboard: React.FC = () => {
                                 )}
                               </TableCell>
 
-                              <TableCell className="text-xs text-muted-foreground text-right group-hover:text-foreground transition-colors">
+                              <TableCell className="w-[120px] py-1.5 text-xs text-muted-foreground text-right group-hover:text-foreground transition-colors">
                                 {formatDistanceToNow(new Date(proxy.checked_at), {
                                   addSuffix: true,
                                 })}
