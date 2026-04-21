@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Proxy Checker Web",
-  description: "Real-time proxy validation dashboard powered by Next.js, Supabase, and GitHub Actions.",
+  title: "Free Proxy Checker",
+  description: "Check free proxies by speed, location, and Google access.",
 };
 
 export default function RootLayout({
