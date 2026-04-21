@@ -207,7 +207,7 @@ const ProxyDashboard: React.FC = () => {
     }
 
     try {
-      const { data: proxies, error } = await supabase.from("proxies").select("*").order("checked_at", { ascending: false });
+      const { data: proxies, error } = await supabase.from("proxies").select("*").order("checked_at", { ascending: false }).limit(5000);
 
       if (error) {
         setLoadError("Failed to load proxy records from Supabase. Verify the project URL, publishable key, and read policy.");

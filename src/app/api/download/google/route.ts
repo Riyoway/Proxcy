@@ -15,7 +15,8 @@ export async function GET() {
     const { data, error } = await supabase
       .from('proxies')
       .select('id')
-      .eq('is_google', true);
+      .eq('is_google', true)
+      .limit(50000);
 
     if (error) throw error;
 
