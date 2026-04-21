@@ -207,16 +207,40 @@ const ProxyDashboard: React.FC = () => {
     }
 
     try {
-      const { data: proxies, error } = await supabase.from("proxies").select("*").order("checked_at", { ascending: false }).limit(50000);
+      const allProxies: ProxyRecord[] = [];
+      let from = 0;
+      const step = 1000;
+      let hasMore = true;
 
-      if (error) {
-        setLoadError("Failed to load proxy records from Supabase. Verify the project URL, publishable key, and read policy.");
-        console.error("Error fetching proxies:", error);
-      } else if (proxies) {
-        setLoadError(null);
-        setData(proxies as ProxyRecord[]);
-        setLastRefreshed(new Date());
+      while (hasMore) {
+        const { data: chunk, error } = await supabase
+          .from("proxies")
+          .select("*")
+          .order("checked_at", { ascending: false })
+          .range(from, from + step - 1);
+
+        if (error) {
+          throw error;
+        }
+
+        if (chunk && chunk.length > 0) {
+          allProxies.push(...(chunk as ProxyRecord[]));
+          if (chunk.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
+        
+        // Safety break to prevent infinite loops if something goes wrong
+        if (allProxies.length >= 50000) break;
       }
+
+      setLoadError(null);
+      setData(allProxies);
+      setLastRefreshed(new Date());
     } catch (err) {
       setLoadError("Unexpected error while loading proxy records. Check the browser console and Supabase configuration.");
       console.error("Unexpected error:", err);

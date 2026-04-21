@@ -12,15 +12,36 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET() {
   try {
-    const { data, error } = await supabase
-      .from('proxies')
-      .select('id')
-      .eq('is_google', true)
-      .limit(50000);
+    const allIds: string[] = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
 
-    if (error) throw error;
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from('proxies')
+        .select('id')
+        .eq('is_google', true)
+        .order('id')
+        .range(from, from + step - 1);
 
-    const proxyList = data.map((p) => p.id).join('\n');
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        allIds.push(...data.map((p) => p.id));
+        if (data.length < step) {
+          hasMore = false;
+        } else {
+          from += step;
+        }
+      } else {
+        hasMore = false;
+      }
+      
+      if (allIds.length >= 50000) break;
+    }
+
+    const proxyList = allIds.join('\n');
 
     return new NextResponse(proxyList, {
       headers: {
