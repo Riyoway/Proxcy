@@ -195,8 +195,12 @@ const ProxyDashboard: React.FC = () => {
   const [pageSize] = useState(15);
   const [protocolFilters, setProtocolFilters] = useState<Set<string>>(new Set());
   const [googleAccessFilter, setGoogleAccessFilter] = useState<"all" | "yes" | "no">("all");
-  const [selectedCountryKey, setSelectedCountryKey] = useState<string | null>(null);
+  const [countryFilters, setCountryFilters] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  const selectedCountryKey = useMemo(() => {
+    return countryFilters.size === 1 ? Array.from(countryFilters)[0] : null;
+  }, [countryFilters]);
 
   const fetchProxies = useCallback(async () => {
     setIsLoading(true);
@@ -287,7 +291,7 @@ const ProxyDashboard: React.FC = () => {
 
   const filteredAndSortedData = useMemo(() => {
     const filtered = baseFilteredData.filter((item) => {
-      return selectedCountryKey === null || normalizeCountryName(item.country_name) === selectedCountryKey;
+      return countryFilters.size === 0 || countryFilters.has(normalizeCountryName(item.country_name) ?? "");
     });
 
     filtered.sort((a, b) => {
@@ -336,7 +340,7 @@ const ProxyDashboard: React.FC = () => {
     });
 
     return filtered;
-  }, [baseFilteredData, sortField, sortDirection, selectedCountryKey]);
+  }, [baseFilteredData, sortField, sortDirection, countryFilters]);
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
@@ -391,17 +395,30 @@ const ProxyDashboard: React.FC = () => {
   const clearFilters = useCallback(() => {
     setProtocolFilters(new Set());
     setGoogleAccessFilter("all");
-    setSelectedCountryKey(null);
+    setCountryFilters(new Set());
     setSearchQuery("");
     setCurrentPage(1);
   }, []);
 
-  const hasActiveFilters = protocolFilters.size > 0 || googleAccessFilter !== "all" || selectedCountryKey !== null || searchQuery !== "";
+  const toggleCountryFilter = useCallback((countryKey: string) => {
+    setCountryFilters((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(countryKey)) {
+        newSet.delete(countryKey);
+      } else {
+        newSet.add(countryKey);
+      }
+      return newSet;
+    });
+    setCurrentPage(1);
+  }, []);
+
+  const hasActiveFilters = protocolFilters.size > 0 || googleAccessFilter !== "all" || countryFilters.size > 0 || searchQuery !== "";
 
   const rawApiUrl = useMemo(() => {
     const params = new URLSearchParams();
-    if (selectedCountryKey) {
-      params.set("country", selectedCountryKey);
+    if (countryFilters.size > 0) {
+      params.set("country", Array.from(countryFilters).join(","));
     }
     if (protocolFilters.size > 0) {
       params.set("protocol", Array.from(protocolFilters).join(","));
@@ -413,7 +430,7 @@ const ProxyDashboard: React.FC = () => {
     }
     const q = params.toString();
     return `/api/raw${q ? "?" + q : ""}`;
-  }, [selectedCountryKey, protocolFilters, googleAccessFilter]);
+  }, [countryFilters, protocolFilters, googleAccessFilter]);
 
   const SortIcon: React.FC<{ field: SortField }> = ({ field }) => {
     if (sortField !== field) return <ChevronsUpDown className={getSortIconClassName(field)} />;
@@ -421,8 +438,8 @@ const ProxyDashboard: React.FC = () => {
   };
 
   const toolbarSurfaceClassName = "p-0";
-  const filterTriggerClassName = "inline-flex h-9 min-w-[124px] items-center justify-center gap-2 rounded-md border-0 bg-transparent px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-0 data-[popup-open]:bg-muted/50 data-[popup-open]:text-foreground";
-  const exportTriggerClassName = "inline-flex h-9 min-w-[100px] items-center justify-center gap-2 rounded-md border-0 bg-transparent px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-0 data-[popup-open]:bg-muted/50 data-[popup-open]:text-foreground";
+  const filterTriggerClassName = "inline-flex h-9 min-w-[80px] items-center justify-center gap-2 rounded-md border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-0 data-[popup-open]:bg-muted/50 data-[popup-open]:text-foreground";
+  const exportTriggerClassName = "inline-flex h-9 min-w-[80px] items-center justify-center gap-2 rounded-md border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-0 data-[popup-open]:bg-muted/50 data-[popup-open]:text-foreground";
   const searchInputClassName = "pl-9 h-9 rounded-md border-0 bg-muted/35 text-sm shadow-none transition-colors placeholder:text-muted-foreground/80 focus-visible:border-transparent focus-visible:ring-0 font-mono";
   const sortButtonClassName = "group flex h-8 w-full items-center gap-2 rounded-none border-0 bg-transparent p-0 text-left text-xs font-semibold text-muted-foreground shadow-none outline-none transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-0";
   const sectionMotionClassName = "";
@@ -533,7 +550,9 @@ const ProxyDashboard: React.FC = () => {
       })
       .filter((item): item is NonNullable<typeof item> => item !== null);
   }, [baseFilteredData]);
-  const selectedCountryStat = selectedCountryKey ? (countryStats.find((item) => item.key === selectedCountryKey) ?? null) : null;
+  const selectedCountryStat = useMemo(() => {
+    return selectedCountryKey ? (countryStats.find((item) => item.key === selectedCountryKey) ?? null) : null;
+  }, [selectedCountryKey, countryStats]);
   const getSortLabelClassName = (field: SortField) => cn("transition-colors group-hover:text-foreground", sortField === field ? "text-foreground underline underline-offset-4 decoration-1" : "text-muted-foreground");
   const getSortIconClassName = (field: SortField) => cn("ml-2 h-3 w-3 transition-opacity", sortField === field ? "opacity-100 text-foreground" : "opacity-45 group-hover:opacity-70");
 
@@ -690,8 +709,11 @@ const ProxyDashboard: React.FC = () => {
               records={mapRecords}
               selectedCountryKey={selectedCountryKey}
               onSelectCountry={(countryKey: string | null) => {
-                setSelectedCountryKey(countryKey);
-                setCurrentPage(1);
+                if (countryKey) {
+                  toggleCountryFilter(countryKey);
+                } else {
+                  setCountryFilters(new Set());
+                }
               }}
             />
           </div>
@@ -771,7 +793,7 @@ const ProxyDashboard: React.FC = () => {
 
                     {/* Google Access Filter */}
                     <DropdownMenu>
-                      <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[148px]")}>
+                      <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[110px]")}>
                         <Globe className="h-3.5 w-3.5" />
                         Google Access
                         {googleAccessFilter !== "all" && (
@@ -822,25 +844,25 @@ const ProxyDashboard: React.FC = () => {
 
                     {/* Country Filter */}
                     <DropdownMenu>
-                      <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[140px]")}>
+                      <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[84px]")}>
                         <MapPinned className="h-3.5 w-3.5" />
                         Country
-                        {selectedCountryKey && (
+                        {countryFilters.size > 0 && (
                           <Badge
                             variant="secondary"
                             className="ml-1.5 h-4 w-4 rounded-sm p-0 flex items-center justify-center"
                           >
-                            1
+                            {countryFilters.size}
                           </Badge>
                         )}
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         align="end"
-                        className="w-56 max-h-[300px] overflow-y-auto"
+                        className="w-56 max-h-[300px] overflow-y-auto scrollbar-hide"
                       >
                         <DropdownMenuItem
                           onClick={() => {
-                            setSelectedCountryKey(null);
+                            setCountryFilters(new Set());
                             setCurrentPage(1);
                           }}
                           className="text-xs font-medium cursor-pointer"
@@ -851,17 +873,27 @@ const ProxyDashboard: React.FC = () => {
                         {countryStats.map((stat) => (
                           <DropdownMenuCheckboxItem
                             key={stat.key}
-                            checked={selectedCountryKey === stat.key}
-                            onCheckedChange={() => {
-                              setSelectedCountryKey(stat.key);
-                              setCurrentPage(1);
-                            }}
+                            checked={countryFilters.has(stat.key)}
+                            onCheckedChange={() => toggleCountryFilter(stat.key)}
                             className="text-xs font-medium"
                           >
-                            <span className="flex items-center gap-2">
-                              <span>{getCountryFlagEmoji(stat.countryCode)}</span>
-                              <span className="truncate">{stat.displayName}</span>
-                              <span className="ml-auto text-[10px] text-muted-foreground">({stat.proxyCount})</span>
+                            <span className="flex items-center gap-2 w-full">
+                              <div className="shrink-0 w-4 h-3 relative">
+                                {getCountryFlagAssetUrl(stat.countryCode) ? (
+                                  <Image
+                                    src={getCountryFlagAssetUrl(stat.countryCode)!}
+                                    alt={stat.countryCode || ""}
+                                    fill
+                                    className="object-contain"
+                                  />
+                                ) : (
+                                  <span className="text-[10px]">🌐</span>
+                                )}
+                              </div>
+                              <span className="truncate flex-1">{stat.displayName}</span>
+                              <span className="ml-auto text-[10px] text-muted-foreground font-mono">
+                                {stat.proxyCount}
+                              </span>
                             </span>
                           </DropdownMenuCheckboxItem>
                         ))}

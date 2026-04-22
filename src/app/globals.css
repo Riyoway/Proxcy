@@ -193,6 +193,15 @@
     transform: translateX(-100%);
     animation: ui-shimmer 1.8s ease-in-out infinite;
   }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
 
 @keyframes ui-entrance {

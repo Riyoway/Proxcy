@@ -180,7 +180,7 @@ async function fetchRichGeoMetadata(ip: string): Promise<any> {
   
   try {
     const res = await axios.get(`https://ipwho.is/${ip}?fields=success,country,country_code,connection`, { timeout: 10000 });
-    const payload = res.data;
+    const payload = res.data as any;
     if (payload?.success) {
       const data = {
         country_code: payload.country_code || null,

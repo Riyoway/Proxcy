@@ -33,7 +33,12 @@ export async function GET(request: Request) {
   }
 
   if (country) {
-    query = query.or(`country_code.ilike.%${country}%,country_name.ilike.%${country}%`);
+    const countries = country.split(',').map(c => c.trim());
+    const orParts = countries.flatMap(c => [
+      `country_code.ilike.%${c}%`,
+      `country_name.ilike.%${c}%`
+    ]);
+    query = query.or(orParts.join(','));
   }
 
   // Handle potential 1000 row limits by fetching in chunks if necessary, 
