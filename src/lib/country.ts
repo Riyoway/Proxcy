@@ -1,54 +1,10 @@
-const COUNTRY_NAME_ALIASES: Record<string, string> = {
-  // United States
-  "united states of america": "united states",
-  "usa": "united states",
-  "us": "united states",
-  // Russia
-  "russian federation": "russia",
-  "ru": "russia",
-  // United Kingdom
-  "great britain": "united kingdom",
-  "uk": "united kingdom",
-  "gb": "united kingdom",
-  // South Korea
-  "korea republic of": "south korea",
-  "republic of korea": "south korea",
-  "kr": "south korea",
-  // North Korea
-  "democratic peoples republic of korea": "north korea",
-  "korea democratic peoples republic of": "north korea",
-  // China & Taiwan & Hong Kong
-  "peoples republic of china": "china",
-  "cn": "china",
-  "taiwan province of china": "taiwan",
-  "tw": "taiwan",
-  "hong kong sar": "hong kong",
-  "hk": "hong kong",
-  // Vietnam
-  "viet nam": "vietnam",
-  "vn": "vietnam",
-  // Iran
-  "iran islamic republic of": "iran",
-  "ir": "iran",
-  // Other standard aliases
-  "bolivia plurinational state of": "bolivia",
-  "czech republic": "czechia",
-  "lao peoples democratic republic": "laos",
-  "moldova republic of": "moldova",
-  "palestine state of": "palestine",
-  "syrian arab republic": "syria",
-  "tanzania united republic of": "tanzania",
-  "venezuela bolivarian republic of": "venezuela",
-  "br": "brazil",
-  "de": "germany",
-  "jp": "japan",
-  "fr": "france",
-  "it": "italy",
-  "in": "india",
-  "ca": "canada",
-  "au": "australia",
-  "id":"indonesia"
-};
+import * as countries from "i18n-iso-countries";
+import en from "i18n-iso-countries/langs/en.json";
+
+// Register locale for code lookups (Name -> Code)
+countries.registerLocale((en as any).countries ? en : (en as any).default);
+
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
 
 function sanitizeCountryName(value: string): string {
   return value
@@ -62,15 +18,40 @@ function sanitizeCountryName(value: string): string {
 }
 
 export function normalizeCountryName(value: string | null | undefined): string | null {
-  if (!value) {
-    return null;
+  if (!value) return null;
+
+  const sanitizedInput = sanitizeCountryName(value);
+  if (!sanitizedInput) return null;
+
+  const upperValue = sanitizedInput.toUpperCase();
+  let alpha2: string | undefined;
+
+  // 1. Direct ISO Code Check (IL, USA, 376...)
+  if (upperValue.length === 2 && countries.isValid(upperValue)) {
+    alpha2 = upperValue;
+  } else if (upperValue.length === 3) {
+    alpha2 = countries.alpha3ToAlpha2(upperValue);
+  } else if (/^\d+$/.test(upperValue)) {
+    alpha2 = countries.numericToAlpha2(upperValue);
   }
 
-  const sanitized = sanitizeCountryName(value);
-
-  if (!sanitized) {
-    return null;
+  // 2. Name lookup if not found as code (e.g. "israel" -> "IL")
+  if (!alpha2) {
+    alpha2 = countries.getAlpha2Code(value, "en") || countries.getAlpha2Code(sanitizedInput, "en") || undefined;
   }
 
-  return COUNTRY_NAME_ALIASES[sanitized] ?? sanitized;
+  // 3. Resolve to standard name using built-in Intl API
+  if (alpha2) {
+    try {
+      const name = regionNames.of(alpha2);
+      if (name) return name;
+    } catch (e) {
+      // Fallback to library name if Intl fails
+      const official = countries.getName(alpha2, "en", { select: "official" }) || countries.getName(alpha2, "en");
+      if (official) return official;
+    }
+  }
+
+  // 4. Ultimate fallback: Title Case
+  return sanitizedInput.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 }

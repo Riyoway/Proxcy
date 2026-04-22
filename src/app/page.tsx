@@ -484,10 +484,6 @@ const ProxyDashboard: React.FC = () => {
           existing.countryCode = item.country_code;
         }
 
-        if (item.country_name && item.country_name.length > existing.displayName.length) {
-          existing.displayName = item.country_name;
-        }
-
         if (new Date(item.checked_at).getTime() > new Date(existing.latestCheckedAt).getTime()) {
           existing.latestCheckedAt = item.checked_at;
         }
@@ -497,7 +493,7 @@ const ProxyDashboard: React.FC = () => {
 
       grouped.set(key, {
         key,
-        displayName: item.country_name ?? key,
+        displayName: key,
         countryCode: item.country_code,
         fastestSpeedMs: item.speed_ms,
         googleCount: item.is_google ? 1 : 0,
@@ -890,10 +886,12 @@ const ProxyDashboard: React.FC = () => {
                                   <span className="text-[10px]">🌐</span>
                                 )}
                               </div>
-                              <span className="truncate flex-1">{stat.displayName}</span>
-                              <span className="ml-auto text-[10px] text-muted-foreground font-mono">
-                                {stat.proxyCount}
-                              </span>
+                              <div className="flex-1 flex items-center justify-between min-w-0">
+                                <span className="truncate text-xs font-medium">{stat.displayName}</span>
+                                <span className="text-[10px] text-muted-foreground font-mono ml-2">
+                                  {stat.proxyCount}
+                                </span>
+                              </div>
                             </span>
                           </DropdownMenuCheckboxItem>
                         ))}
@@ -1132,8 +1130,8 @@ const ProxyDashboard: React.FC = () => {
                                   )}
 
                                   <div className="min-w-0">
-                                    <div className="text-xs font-medium text-foreground truncate">{proxy.country_code ?? "N/A"}</div>
-                                    <div className="text-[11px] text-muted-foreground truncate">{proxy.country_name ?? "Unknown"}</div>
+                                    <div className="text-xs font-medium text-foreground truncate">{normalizeCountryName(proxy.country_name) ?? "Unknown"}</div>
+                                    <div className="text-[11px] text-muted-foreground truncate">{proxy.country_code ?? "N/A"}</div>
                                   </div>
                                 </div>
                               </TableCell>
