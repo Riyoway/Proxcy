@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { fetchAllProxies, type ProxyStatRecord } from "@/lib/proxy-fetcher";
+import { fetchAllProxies, fetchProxyHistory, type ProxyHistoryRecord, type ProxyStatRecord } from "@/lib/proxy-fetcher";
 import {
   bucketBySpeed,
   computeAverageSpeed,
   computeFastestProxy,
   computeGoogleAccess,
   groupByCountry,
+  aggregateHistoryByHour,
   groupByHour,
   groupByOrganization,
   groupByProtocol,
@@ -29,6 +30,7 @@ import { OrganizationChart } from "@/components/stats/organization-chart";
 
 const StatsPage: React.FC = () => {
   const [records, setRecords] = useState<ProxyStatRecord[]>([]);
+  const [historyRecords, setHistoryRecords] = useState<ProxyHistoryRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -36,8 +38,9 @@ const StatsPage: React.FC = () => {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await fetchAllProxies();
+      const [data, historyData] = await Promise.all([fetchAllProxies(), fetchProxyHistory()]);
       setRecords(data);
+      setHistoryRecords(historyData);
       setLoadError(null);
       setLastRefreshed(new Date());
     } catch (err) {
@@ -67,7 +70,12 @@ const StatsPage: React.FC = () => {
   const protocolData = useMemo(() => groupByProtocol(records), [records]);
   const countryData = useMemo(() => groupByCountry(records, 10), [records]);
   const speedData = useMemo(() => bucketBySpeed(records), [records]);
-  const timeseriesData = useMemo(() => groupByHour(records, 24), [records]);
+  const timeseriesData = useMemo(() => {
+    if (historyRecords.length > 0) {
+      return aggregateHistoryByHour(historyRecords, 24);
+    }
+    return groupByHour(records, 24);
+  }, [historyRecords, records]);
   const googleAccessData = useMemo(() => computeGoogleAccess(records), [records]);
   const orgData = useMemo(() => groupByOrganization(records, 8), [records]);
 

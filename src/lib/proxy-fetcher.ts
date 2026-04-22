@@ -82,3 +82,28 @@ export async function fetchAllProxies(maxRows = 50000): Promise<ProxyStatRecord[
 
   return Array.from(dedupMap.values());
 }
+
+export interface ProxyHistoryRecord {
+  id: number;
+  created_at: string;
+  total_valid: number;
+  total_google: number;
+}
+
+export async function fetchProxyHistory(hours = 24): Promise<ProxyHistoryRecord[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error("Supabase environment variables are missing.");
+  }
+
+  const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("proxy_history")
+    .select("*")
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}

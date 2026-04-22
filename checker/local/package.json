@@ -1,0 +1,30 @@
+{
+  "name": "checker",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.103.0",
+    "@types/geoip-lite": "^1.4.4",
+    "axios": "^1.15.0",
+    "dotenv": "^17.2.3",
+    "geoip-lite": "^1.4.10",
+    "https-proxy-agent": "^9.0.0",
+    "p-limit": "^7.3.0",
+    "socks-proxy-agent": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}

@@ -1,4 +1,4 @@
-import type { ProxyStatRecord } from "./proxy-fetcher";
+import type { ProxyHistoryRecord, ProxyStatRecord } from "./proxy-fetcher";
 
 export interface ProtocolDatum {
   name: string;
@@ -115,6 +115,35 @@ export function groupByHour(records: ProxyStatRecord[], hours = 24): TimeSeriesD
     if (bucket) {
       bucket.count += 1;
       if (record.is_google) bucket.google += 1;
+    }
+  }
+
+  return Array.from(buckets.values());
+}
+
+export function aggregateHistoryByHour(records: ProxyHistoryRecord[], hours = 24): TimeSeriesDatum[] {
+  const now = Date.now();
+  const buckets = new Map<number, TimeSeriesDatum>();
+
+  for (let i = hours - 1; i >= 0; i--) {
+    const date = new Date(now - i * 60 * 60 * 1000);
+    date.setMinutes(0, 0, 0);
+    const key = date.getTime();
+    const hourLabel = `${String(date.getHours()).padStart(2, "0")}:00`;
+    buckets.set(key, { hour: hourLabel, count: 0, google: 0 });
+  }
+
+  const cutoff = now - hours * 60 * 60 * 1000;
+
+  for (const record of records) {
+    const ts = new Date(record.created_at).getTime();
+    if (ts < cutoff) continue;
+    const bucketDate = new Date(ts);
+    bucketDate.setMinutes(0, 0, 0);
+    const bucket = buckets.get(bucketDate.getTime());
+    if (bucket) {
+      bucket.count = Math.max(bucket.count, record.total_valid);
+      bucket.google = Math.max(bucket.google, record.total_google);
     }
   }
 

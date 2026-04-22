@@ -398,6 +398,23 @@ const ProxyDashboard: React.FC = () => {
 
   const hasActiveFilters = protocolFilters.size > 0 || googleAccessFilter !== "all" || selectedCountryKey !== null || searchQuery !== "";
 
+  const rawApiUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (selectedCountryKey) {
+      params.set("country", selectedCountryKey);
+    }
+    if (protocolFilters.size > 0) {
+      params.set("protocol", Array.from(protocolFilters).join(","));
+    }
+    if (googleAccessFilter === "yes") {
+      params.set("google", "true");
+    } else if (googleAccessFilter === "no") {
+      params.set("google", "false");
+    }
+    const q = params.toString();
+    return `/api/raw${q ? "?" + q : ""}`;
+  }, [selectedCountryKey, protocolFilters, googleAccessFilter]);
+
   const SortIcon: React.FC<{ field: SortField }> = ({ field }) => {
     if (sortField !== field) return <ChevronsUpDown className={getSortIconClassName(field)} />;
     return sortDirection === "asc" ? <ChevronUp className={getSortIconClassName(field)} /> : <ChevronDown className={getSortIconClassName(field)} />;
@@ -798,12 +815,60 @@ const ProxyDashboard: React.FC = () => {
                           }}
                           className="text-xs font-medium"
                         >
-                          Blocked
+                          Block
                         </DropdownMenuCheckboxItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {selectedCountryStat ? (
+                    {/* Country Filter */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[140px]")}>
+                        <MapPinned className="h-3.5 w-3.5" />
+                        Country
+                        {selectedCountryKey && (
+                          <Badge
+                            variant="secondary"
+                            className="ml-1.5 h-4 w-4 rounded-sm p-0 flex items-center justify-center"
+                          >
+                            1
+                          </Badge>
+                        )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-56 max-h-[300px] overflow-y-auto"
+                      >
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedCountryKey(null);
+                            setCurrentPage(1);
+                          }}
+                          className="text-xs font-medium cursor-pointer"
+                        >
+                          All Countries
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {countryStats.map((stat) => (
+                          <DropdownMenuCheckboxItem
+                            key={stat.key}
+                            checked={selectedCountryKey === stat.key}
+                            onCheckedChange={() => {
+                              setSelectedCountryKey(stat.key);
+                              setCurrentPage(1);
+                            }}
+                            className="text-xs font-medium"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span>{getCountryFlagEmoji(stat.countryCode)}</span>
+                              <span className="truncate">{stat.displayName}</span>
+                              <span className="ml-auto text-[10px] text-muted-foreground">({stat.proxyCount})</span>
+                            </span>
+                          </DropdownMenuCheckboxItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {selectedCountryStat && !hasActiveFilters && (
                       <Badge
                         variant="outline"
                         className="inline-flex h-9 items-center gap-2 rounded-md border-zinc-700/70 bg-zinc-900/70 px-3 text-xs font-medium text-zinc-200"
@@ -811,7 +876,7 @@ const ProxyDashboard: React.FC = () => {
                         <MapPinned className="h-3.5 w-3.5" />
                         {selectedCountryStat.displayName}
                       </Badge>
-                    ) : null}
+                    )}
 
                     {hasActiveFilters && (
                       <Button
@@ -836,7 +901,7 @@ const ProxyDashboard: React.FC = () => {
                         align="end"
                         className="w-56"
                       >
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current View</div>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filtered View (Current)</div>
                         <DropdownMenuItem
                           onClick={() => handleExport("csv", false)}
                           className="text-xs cursor-pointer font-medium"
@@ -850,18 +915,20 @@ const ProxyDashboard: React.FC = () => {
                           Export as TXT (IP:Port)
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Google Accessible Only</div>
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Raw API Endpoint</div>
                         <DropdownMenuItem
-                          onClick={() => handleExport("csv", true)}
+                          onClick={() => window.open(rawApiUrl, "_blank", "noreferrer")}
                           className="text-xs cursor-pointer font-medium"
                         >
-                          Export as CSV
+                          Open Filtered API URL
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => handleExport("txt", true)}
+                          onClick={() => {
+                            navigator.clipboard.writeText(window.location.origin + rawApiUrl);
+                          }}
                           className="text-xs cursor-pointer font-medium"
                         >
-                          Export as TXT (IP:Port)
+                          Copy Filtered API URL
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

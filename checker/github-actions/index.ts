@@ -570,7 +570,21 @@ async function runCycle() {
     console.log("Cleanup complete. Removed invalid/dead proxies successfully.");
   }
 
-  console.log(`Cycle complete. Total unique valid proxies found: ${uniqueValidProxies.length}`);
+  const totalValid = uniqueValidProxies.length;
+  const totalGoogle = uniqueValidProxies.filter(p => p.is_google).length;
+
+  console.log("Saving cycle stats to proxy_history...");
+  const { error: histError } = await supabase
+    .from('proxy_history')
+    .insert([{ total_valid: totalValid, total_google: totalGoogle }]);
+
+  if (histError) {
+    console.error("Error saving proxy history:", histError);
+  } else {
+    console.log("History saved successfully.");
+  }
+
+  console.log(`Cycle complete. Total unique valid proxies found: ${totalValid}`);
 }
 
 async function main() {

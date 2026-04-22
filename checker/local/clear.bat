@@ -1,0 +1,1 @@
+npx tsx clear-proxies.ts
