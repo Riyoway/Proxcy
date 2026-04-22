@@ -955,7 +955,7 @@ const ProxyDashboard: React.FC = () => {
                     <DropdownMenu>
                       <DropdownMenuTrigger className={cn(exportTriggerClassName, "md:ml-auto")}>
                         <Download className="h-3.5 w-3.5" />
-                        <span>Export</span>
+                        <span>Export / API</span>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         align="end"
