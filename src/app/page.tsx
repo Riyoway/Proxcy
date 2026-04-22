@@ -196,6 +196,7 @@ const ProxyDashboard: React.FC = () => {
   const [protocolFilters, setProtocolFilters] = useState<Set<string>>(new Set());
   const [googleAccessFilter, setGoogleAccessFilter] = useState<"all" | "yes" | "no">("all");
   const [countryFilters, setCountryFilters] = useState<Set<string>>(new Set());
+  const [countrySearch, setCountrySearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   const selectedCountryKey = useMemo(() => {
@@ -520,6 +521,14 @@ const ProxyDashboard: React.FC = () => {
       }))
       .sort((a, b) => b.proxyCount - a.proxyCount);
   }, [baseFilteredData]);
+
+  const filteredCountryStats = useMemo(() => {
+    if (!countrySearch) return countryStats;
+    const q = countrySearch.toLowerCase();
+    return countryStats.filter(
+      (s) => s.displayName.toLowerCase().includes(q) || (s.countryCode && s.countryCode.toLowerCase().includes(q)),
+    );
+  }, [countryStats, countrySearch]);
   const mapRecords = useMemo(() => {
     return baseFilteredData
       .map((item) => {
@@ -839,7 +848,7 @@ const ProxyDashboard: React.FC = () => {
                     </DropdownMenu>
 
                     {/* Country Filter */}
-                    <DropdownMenu>
+                    <DropdownMenu onOpenChange={(open) => !open && setCountrySearch("")}>
                       <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[84px]")}>
                         <MapPinned className="h-3.5 w-3.5" />
                         Country
@@ -854,47 +863,68 @@ const ProxyDashboard: React.FC = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         align="end"
-                        className="w-56 max-h-[300px] overflow-y-auto scrollbar-hide"
+                        className="w-56 p-0 overflow-hidden"
                       >
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setCountryFilters(new Set());
-                            setCurrentPage(1);
-                          }}
-                          className="text-xs font-medium cursor-pointer"
-                        >
-                          All Countries
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {countryStats.map((stat) => (
-                          <DropdownMenuCheckboxItem
-                            key={stat.key}
-                            checked={countryFilters.has(stat.key)}
-                            onCheckedChange={() => toggleCountryFilter(stat.key)}
-                            className="text-xs font-medium"
+                        <div className="p-2 border-b border-border/50 bg-muted/20">
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <input
+                              className="w-full bg-transparent pl-8 pr-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground"
+                              placeholder="Search countries..."
+                              value={countrySearch}
+                              onChange={(e) => setCountrySearch(e.target.value)}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto scrollbar-hide py-1">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setCountryFilters(new Set());
+                              setCurrentPage(1);
+                            }}
+                            className="text-xs font-medium cursor-pointer"
                           >
-                            <span className="flex items-center gap-2 w-full">
-                              <div className="shrink-0 w-4 h-3 relative">
-                                {getCountryFlagAssetUrl(stat.countryCode) ? (
-                                  <Image
-                                    src={getCountryFlagAssetUrl(stat.countryCode)!}
-                                    alt={stat.countryCode || ""}
-                                    fill
-                                    className="object-contain"
-                                  />
-                                ) : (
-                                  <span className="text-[10px]">🌐</span>
-                                )}
-                              </div>
-                              <div className="flex-1 flex items-center justify-between min-w-0">
-                                <span className="truncate text-xs font-medium">{stat.displayName}</span>
-                                <span className="text-[10px] text-muted-foreground font-mono ml-2">
-                                  {stat.proxyCount}
+                            All Countries
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {filteredCountryStats.length === 0 ? (
+                            <div className="px-2 py-4 text-center text-[10px] text-muted-foreground">
+                              No countries found
+                            </div>
+                          ) : (
+                            filteredCountryStats.map((stat) => (
+                              <DropdownMenuCheckboxItem
+                                key={stat.key}
+                                checked={countryFilters.has(stat.key)}
+                                onCheckedChange={() => toggleCountryFilter(stat.key)}
+                                onSelect={(e) => e.preventDefault()}
+                                className="text-xs font-medium"
+                              >
+                                <span className="flex items-center gap-2 w-full">
+                                  <div className="shrink-0 w-4 h-3 relative">
+                                    {getCountryFlagAssetUrl(stat.countryCode) ? (
+                                      <Image
+                                        src={getCountryFlagAssetUrl(stat.countryCode)!}
+                                        alt={stat.countryCode || ""}
+                                        fill
+                                        className="object-contain"
+                                      />
+                                    ) : (
+                                      <span className="text-[10px]">🌐</span>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 flex items-center justify-between min-w-0">
+                                    <span className="truncate text-xs font-medium">{stat.displayName}</span>
+                                    <span className="text-[10px] text-muted-foreground font-mono ml-2">
+                                      {stat.proxyCount}
+                                    </span>
+                                  </div>
                                 </span>
-                              </div>
-                            </span>
-                          </DropdownMenuCheckboxItem>
-                        ))}
+                              </DropdownMenuCheckboxItem>
+                            ))
+                          )}
+                        </div>
                       </DropdownMenuContent>
                     </DropdownMenu>
 
