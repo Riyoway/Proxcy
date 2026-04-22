@@ -178,6 +178,7 @@ async function seedGeoCacheFromSupabase(): Promise<void> {
 async function fetchRichGeoMetadata(ip: string): Promise<any> {
   if (geoCache.has(ip)) return geoCache.get(ip);
   
+  // 1. Try ipwho.is
   try {
     const res = await axios.get(`https://ipwho.is/${ip}?fields=success,country,country_code,connection`, { timeout: 10000 });
     const payload = res.data as any;
@@ -195,7 +196,29 @@ async function fetchRichGeoMetadata(ip: string): Promise<any> {
       return data;
     }
   } catch { /* ignore */ }
+
+  // 2. Try ip-api.com as fallback for ASN/ORG
+  try {
+    const res = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,org,as,isp`, { timeout: 10000 });
+    const payload = res.data as any;
+    if (payload?.status === "success") {
+      // Extract AS number (format usually "AS12345 Name")
+      const asnStr = payload.as ? payload.as.split(' ')[0] : null;
+      const data = {
+        country_code: payload.countryCode || null,
+        country_name: payload.country || null,
+        asn: asnStr,
+        organization: payload.org || payload.isp || null,
+        geo_status: 'resolved'
+      };
+      geoCache.set(ip, data);
+      // ip-api.com limit is 45 requests per minute, so wait ~1.4s
+      await new Promise(r => setTimeout(r, 1400));
+      return data;
+    }
+  } catch { /* ignore */ }
   
+  // 3. Fallback to local geoip-lite (no ASN/ORG)
   return getLocalGeoMetadata(ip);
 }
 
