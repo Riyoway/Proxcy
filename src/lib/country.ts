@@ -47,6 +47,7 @@ const COUNTRY_NAME_ALIASES: Record<string, string> = {
   "in": "india",
   "ca": "canada",
   "au": "australia",
+  "id":"indonesia"
 };
 
 function sanitizeCountryName(value: string): string {
