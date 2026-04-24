@@ -5,9 +5,11 @@ import { createClient } from '@supabase/supabase-js';
 import pLimit from 'p-limit';
 import geoip from 'geoip-lite';
 import { SOURCES } from './sources.js';
+import { scrapeAllProxies } from './scraper/index.js';
 import { config } from 'dotenv';
 import type { Agent as HttpAgent } from 'http';
 import type { Agent as HttpsAgent } from 'https';
+import type { CancelToken } from 'axios';
 
 // Load environment variables from .env.local
 config({ path: '.env.local' });
@@ -51,6 +53,7 @@ type ProxyAgent = HttpAgent | HttpsAgent;
 type NodeAxiosConfig = NonNullable<Parameters<typeof axios.get>[1]> & {
   httpAgent?: ProxyAgent;
   httpsAgent?: ProxyAgent;
+  cancelToken?: CancelToken;
 };
 
 /**
@@ -76,11 +79,12 @@ function getLocalGeoMetadata(ip: string): Partial<ProxyRecord> {
   };
 }
 
-function createProxyRequestConfig(agent: ProxyAgent): NodeAxiosConfig {
+function createProxyRequestConfig(agent: ProxyAgent, cancelToken?: CancelToken): NodeAxiosConfig {
   return {
     httpAgent: agent,
     httpsAgent: agent,
     timeout: TIMEOUT_MS,
+    cancelToken,
     validateStatus: () => true, // Don't throw on 4xx/5xx for speed
   };
 }
@@ -134,6 +138,26 @@ async function downloadProxies(): Promise<string[]> {
   }));
 
   await Promise.all(tasks);
+
+  try {
+    const scrapedProxies = await scrapeAllProxies();
+    for (const proxy of scrapedProxies) {
+      const normalized = normalizeProxy(proxy);
+      try {
+        const urlObj = new URL(normalized);
+        const ip = urlObj.hostname.toLowerCase();
+        if (!seenIps.has(ip)) {
+          seenIps.add(ip);
+          proxySet.add(normalized);
+        }
+      } catch {
+        // Ignore
+      }
+    }
+  } catch (err) {
+    console.error('Error during custom scraping:', err);
+  }
+
   return shuffleArray(Array.from(proxySet));
 }
 
@@ -252,11 +276,18 @@ async function testProxy(proxyStr: string): Promise<ProxyRecord | null> {
   let isGoogle = false;
   let speedMs = 0;
 
+  // 25s safety net using CancelToken (100% reliable for aborting stuck requests)
+  const source = axios.CancelToken.source();
+  const safetyTimer = setTimeout(() => {
+    source.cancel('Hard timeout');
+    try { agent.destroy(); } catch { }
+  }, 25000);
+
   try {
     // Run both tests in parallel to save time
     const [res, gRes] = await Promise.allSettled([
-      axios.get(TEST_URL, createProxyRequestConfig(agent)),
-      axios.get(GOOGLE_TEST_URL, createProxyRequestConfig(agent))
+      axios.get(TEST_URL, createProxyRequestConfig(agent, source.token)),
+      axios.get(GOOGLE_TEST_URL, createProxyRequestConfig(agent, source.token))
     ]);
 
     if (res.status === 'fulfilled' && res.value.status === 200) {
@@ -270,7 +301,8 @@ async function testProxy(proxyStr: string): Promise<ProxyRecord | null> {
 
     if (!isValid) return null;
   } finally {
-    agent.destroy();
+    clearTimeout(safetyTimer);
+    try { agent.destroy(); } catch { }
   }
 
   const geoData = getLocalGeoMetadata(ip);
@@ -395,6 +427,16 @@ async function main() {
     await new Promise(resolve => setTimeout(resolve, 3 * 60 * 1000));
   }
 }
+
+
+// Ignore orphaned socket errors from aborted proxy connections
+process.on('uncaughtException', (err: any) => {
+  if (err?.code === 'ECONNRESET' || err?.message?.includes('socket disconnected')) {
+    // Silently ignore orphaned socket errors
+    return;
+  }
+  console.error('Unhandled exception:', err);
+});
 
 main().catch(err => {
   console.error("Fatal error:", err);
