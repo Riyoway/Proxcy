@@ -38,12 +38,11 @@ export async function scrapeProxy5(): Promise<string[]> {
     });
     
     if (text) {
-      const lines = text.split('\n');
-      for (const line of lines) {
-        const trimmed = line.trim();
-        // Match IP:Port format
-        if (trimmed.match(/^\d+\.\d+\.\d+\.\d+:\d+$/)) {
-          proxies.push(`http://${trimmed}`);
+      const proxyRegex = /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}/gi;
+      const matches = text.match(proxyRegex);
+      if (matches) {
+        for (const match of matches) {
+          proxies.push(`http://${match}`);
         }
       }
     } else {

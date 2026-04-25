@@ -17,9 +17,9 @@ config({ path: '.env.local' });
 // Constants
 const TEST_URL = 'https://api.ipify.org';
 const GOOGLE_TEST_URL = 'https://www.google.com/generate_204';
-const TIMEOUT_MS = 3000;
+const TIMEOUT_MS = 7000;
 const CONCURRENCY = 1000;
-const UPLOAD_BATCH_SIZE = 20; // Lowered from 100 to update Web UI more frequently
+const UPLOAD_BATCH_SIZE = 20;
 const CONTINUOUS_MODE = process.env.CHECKER_CONTINUOUS === 'true';
 
 // Supabase setup
@@ -57,6 +57,30 @@ type NodeAxiosConfig = NonNullable<Parameters<typeof axios.get>[1]> & {
 };
 
 /**
+ * Check if an IP is a valid public IP (not private/reserved/bogon)
+ */
+function isPublicIp(ip: string): boolean {
+  const parts = ip.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return false;
+
+  const [a, b] = parts;
+  // Private ranges
+  if (a === 10) return false;                           // 10.0.0.0/8
+  if (a === 172 && b >= 16 && b <= 31) return false;    // 172.16.0.0/12
+  if (a === 192 && b === 168) return false;              // 192.168.0.0/16
+  // Loopback
+  if (a === 127) return false;                           // 127.0.0.0/8
+  // Link-local
+  if (a === 169 && b === 254) return false;              // 169.254.0.0/16
+  // Reserved/special
+  if (a === 0) return false;                             // 0.0.0.0/8
+  if (a >= 224) return false;                            // 224+ (multicast/reserved)
+  if (a === 100 && b >= 64 && b <= 127) return false;    // 100.64.0.0/10 (CGNAT)
+
+  return true;
+}
+
+/**
  * Gets GeoIP metadata using local geoip-lite library
  */
 function getLocalGeoMetadata(ip: string): Partial<ProxyRecord> {
@@ -71,9 +95,6 @@ function getLocalGeoMetadata(ip: string): Partial<ProxyRecord> {
 
   return {
     country_code: geo.country,
-    // country_name is not directly available in simple form in geoip-lite, 
-    // but country code is usually sufficient. 
-    // We can map common ones or leave as null/code.
     country_name: geo.country, 
     geo_status: 'resolved'
   };
@@ -85,7 +106,7 @@ function createProxyRequestConfig(agent: ProxyAgent, cancelToken?: CancelToken):
     httpsAgent: agent,
     timeout: TIMEOUT_MS,
     cancelToken,
-    validateStatus: () => true, // Don't throw on 4xx/5xx for speed
+    validateStatus: () => true,
   };
 }
 
@@ -102,51 +123,81 @@ function shuffleArray<T>(array: T[]): T[] {
 }
 
 /**
+ * Normalize a proxy string to protocol://ip:port format
+ */
+function normalizeProxy(proxyStr: string): string {
+  let normalized = proxyStr.trim();
+  if (!normalized.includes("://")) {
+    normalized = "http://" + normalized;
+  }
+  try {
+    const url = new URL(normalized);
+    return `${url.protocol.toLowerCase()}//${url.hostname.toLowerCase()}${url.port ? ':' + url.port : ''}`;
+  } catch {
+    return normalized;
+  }
+}
+
+/**
+ * Extract IP:PORT from any text using regex and add to set
+ */
+function extractProxies(text: string, proxySet: Set<string>, seenIps: Set<string>) {
+  const proxyRegex = /(?:(?:https?|socks[45]):\/\/)?\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}/gi;
+  const matches = text.match(proxyRegex);
+  
+  if (matches) {
+    for (const match of matches) {
+      const normalized = normalizeProxy(match);
+      try {
+        const urlObj = new URL(normalized);
+        const ip = urlObj.hostname;
+        const port = parseInt(urlObj.port);
+
+        // Filter out invalid IPs and ports
+        if (!isPublicIp(ip)) continue;
+        if (port < 1 || port > 65535) continue;
+
+        if (!seenIps.has(ip)) {
+          seenIps.add(ip);
+          proxySet.add(normalized);
+        }
+      } catch {
+        // Ignore
+      }
+    }
+  }
+}
+
+/**
  * Downloads proxy lists from all sources and returns unique strings
  */
 async function downloadProxies(): Promise<string[]> {
   const proxySet = new Set<string>();
   const seenIps = new Set<string>();
-  const limit = pLimit(15); // Slightly higher concurrency for downloading
+  const limit = pLimit(15);
 
   const tasks = SOURCES.map((url: string) => limit(async () => {
     try {
       const response = await axios.get(url, { timeout: 15000 });
-      const text = response.data;
-      if (typeof text === 'string') {
-        const lines = text.split(/\r?\n/);
-        for (let line of lines) {
-          line = line.trim();
-          if (line) {
-            const normalized = normalizeProxy(line);
-            try {
-              const url = new URL(normalized);
-              const ip = url.hostname.toLowerCase();
-              if (!seenIps.has(ip)) {
-                seenIps.add(ip);
-                proxySet.add(normalized);
-              }
-            } catch {
-              // Ignore invalid lines
-            }
-          }
-        }
-      }
+      const data = response.data;
+      const text = typeof data === 'string' ? data : JSON.stringify(data);
+      extractProxies(text, proxySet, seenIps);
     } catch {
-      // console.warn(`Failed to fetch from ${url}`);
+      // Ignore failed sources
     }
   }));
 
   await Promise.all(tasks);
 
+  // Custom scrapers
   try {
     const scrapedProxies = await scrapeAllProxies();
     for (const proxy of scrapedProxies) {
       const normalized = normalizeProxy(proxy);
       try {
         const urlObj = new URL(normalized);
-        const ip = urlObj.hostname.toLowerCase();
-        if (!seenIps.has(ip)) {
+        const ip = urlObj.hostname;
+        if (isPublicIp(ip) && !seenIps.has(ip)) {
           seenIps.add(ip);
           proxySet.add(normalized);
         }
@@ -159,19 +210,6 @@ async function downloadProxies(): Promise<string[]> {
   }
 
   return shuffleArray(Array.from(proxySet));
-}
-
-function normalizeProxy(proxyStr: string): string {
-  let normalized = proxyStr.trim();
-  if (!normalized.includes("://")) {
-    normalized = "http://" + normalized;
-  }
-  try {
-    const url = new URL(normalized);
-    return `${url.protocol.toLowerCase()}//${url.hostname.toLowerCase()}${url.port ? ':' + url.port : ''}`;
-  } catch {
-    return normalized;
-  }
 }
 
 const geoCache = new Map<string, any>();
@@ -215,7 +253,6 @@ async function fetchRichGeoMetadata(ip: string): Promise<any> {
         geo_status: 'resolved'
       };
       geoCache.set(ip, data);
-      // Wait a bit to respect rate limits
       await new Promise(r => setTimeout(r, 1000));
       return data;
     }
@@ -226,7 +263,6 @@ async function fetchRichGeoMetadata(ip: string): Promise<any> {
     const res = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,org,as,isp`, { timeout: 10000 });
     const payload = res.data as any;
     if (payload?.status === "success") {
-      // Extract AS number (format usually "AS12345 Name")
       const asnStr = payload.as ? payload.as.split(' ')[0] : null;
       const data = {
         country_code: payload.countryCode || null,
@@ -236,7 +272,6 @@ async function fetchRichGeoMetadata(ip: string): Promise<any> {
         geo_status: 'resolved'
       };
       geoCache.set(ip, data);
-      // ip-api.com limit is 45 requests per minute, so wait ~1.4s
       await new Promise(r => setTimeout(r, 1400));
       return data;
     }
@@ -276,15 +311,15 @@ async function testProxy(proxyStr: string): Promise<ProxyRecord | null> {
   let isGoogle = false;
   let speedMs = 0;
 
-  // 25s safety net using CancelToken (100% reliable for aborting stuck requests)
+  // Safety net: force-cancel after 15 seconds (slightly above TIMEOUT_MS * 2)
   const source = axios.CancelToken.source();
   const safetyTimer = setTimeout(() => {
     source.cancel('Hard timeout');
     try { agent.destroy(); } catch { }
-  }, 25000);
+  }, 15000);
 
   try {
-    // Run both tests in parallel to save time
+    // Run both tests in parallel
     const [res, gRes] = await Promise.allSettled([
       axios.get(TEST_URL, createProxyRequestConfig(agent, source.token)),
       axios.get(GOOGLE_TEST_URL, createProxyRequestConfig(agent, source.token))
@@ -335,7 +370,7 @@ async function runCycle() {
   console.log(`Downloaded ${rawProxies.length} unique proxies.`);
 
   const limit = pLimit(CONCURRENCY);
-  const geoLimit = pLimit(2); // Low concurrency for rich geo data API
+  const geoLimit = pLimit(2);
   let checkedCount = 0;
   let validCount = 0;
   let googleCount = 0;
@@ -428,11 +463,9 @@ async function main() {
   }
 }
 
-
 // Ignore orphaned socket errors from aborted proxy connections
 process.on('uncaughtException', (err: any) => {
   if (err?.code === 'ECONNRESET' || err?.message?.includes('socket disconnected')) {
-    // Silently ignore orphaned socket errors
     return;
   }
   console.error('Unhandled exception:', err);

@@ -11,17 +11,13 @@ export async function scrapeFreeProxyList(): Promise<string[]> {
   if (!textarea) return [];
 
   const text = textarea.toString();
-  const lines = text.split('\n');
+  const proxyRegex = /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{1,5}/gi;
+  const matches = text.match(proxyRegex);
   const proxies: string[] = [];
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.includes('Free proxies') || trimmed.includes('Updated at')) {
-      continue;
-    }
-    // Match IP:Port format
-    if (trimmed.match(/^\d+\.\d+\.\d+\.\d+:\d+$/)) {
-      proxies.push(`http://${trimmed}`);
+  if (matches) {
+    for (const match of matches) {
+      proxies.push(`http://${match}`);
     }
   }
 
