@@ -90,7 +90,7 @@ export interface ProxyHistoryRecord {
   total_google: number;
 }
 
-export async function fetchProxyHistory(hours = 24): Promise<ProxyHistoryRecord[]> {
+export async function fetchProxyHistory(hours = 12): Promise<ProxyHistoryRecord[]> {
   const supabase = getSupabaseClient();
   if (!supabase) {
     throw new Error("Supabase environment variables are missing.");

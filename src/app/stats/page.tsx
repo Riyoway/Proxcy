@@ -72,9 +72,9 @@ const StatsPage: React.FC = () => {
   const speedData = useMemo(() => bucketBySpeed(records), [records]);
   const timeseriesData = useMemo(() => {
     if (historyRecords.length > 0) {
-      return aggregateHistoryByHour(historyRecords, 24);
+      return aggregateHistoryByHour(historyRecords, 12);
     }
-    return groupByHour(records, 24);
+    return groupByHour(records, 12);
   }, [historyRecords, records]);
   const googleAccessData = useMemo(() => computeGoogleAccess(records), [records]);
   const orgData = useMemo(() => groupByOrganization(records, 8), [records]);
@@ -150,7 +150,7 @@ const StatsPage: React.FC = () => {
         </div>
 
         {/* Time series */}
-        <StatCard title="Checks Over Last 24h" description="Hourly validated proxies including Google-accessible share">
+        <StatCard title="Checks Over Last 12h" description="Hourly validated proxies including Google-accessible share">
           {isLoading && records.length === 0 ? <Skeleton className="h-[260px] w-full rounded-md" /> : <TimeSeriesChart data={timeseriesData} />}
         </StatCard>
 

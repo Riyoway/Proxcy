@@ -1,23 +1,25 @@
 {
-  "name": "checker",
+  "name": "checker-new",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node --no-warnings dist/index.js",
+    "dev": "tsx index.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",
+    "@types/geoip-lite": "^1.4.4",
     "axios": "^1.15.0",
+    "cheerio": "^1.0.0",
     "dotenv": "^17.2.3",
+    "geoip-lite": "^1.4.10",
     "https-proxy-agent": "^9.0.0",
     "p-limit": "^7.3.0",
+    "puppeteer": "^22.0.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "socks-proxy-agent": "^10.0.0"
   },
   "devDependencies": {
