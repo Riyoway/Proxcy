@@ -1,4 +1,3 @@
-checker/
 node_modules/
 .next/
 .env*
