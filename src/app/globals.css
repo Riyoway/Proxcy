@@ -169,6 +169,12 @@
     animation: ui-float 3.6s ease-in-out infinite;
   }
 
+  .ui-float-terminal {
+    animation: ui-float-terminal 6s ease-in-out infinite;
+    will-change: transform;
+    transform-style: preserve-3d;
+  }
+
   .ui-pulse-dot {
     animation: ui-soft-pulse 1.4s ease-in-out infinite;
   }
@@ -241,6 +247,21 @@
 
   50% {
     transform: translateY(-3px);
+  }
+}
+
+@keyframes ui-float-terminal {
+  0%,
+  100% {
+    transform: translateY(0) rotateX(0deg);
+  }
+
+  33% {
+    transform: translateY(-12px) rotateX(1deg);
+  }
+
+  66% {
+    transform: translateY(-6px) rotateX(-0.5deg);
   }
 }
 
