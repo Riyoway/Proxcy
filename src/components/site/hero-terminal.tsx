@@ -368,10 +368,6 @@ export const HeroTerminal: React.FC = () => {
       <div
         className="pointer-events-none absolute -inset-6 -z-10 rounded-3xl bg-primary/20 opacity-40 blur-3xl"
         aria-hidden="true"
-        style={{
-          left: -position.x * 0.3,
-          top: -position.y * 0.3,
-        }}
       />
     </div>
   );
