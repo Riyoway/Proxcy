@@ -84,7 +84,16 @@ export const SiteFooter: React.FC = () => {
 
         <div className="mt-8 flex flex-col items-start justify-between gap-3 border-t border-border/40 pt-6 md:flex-row md:items-center">
           <p className="text-xs text-muted-foreground">
-            © {year} {siteConfig.legalName}. Operated by {siteConfig.operator}.
+            © {year} {siteConfig.legalName}. Operated by{" "}
+            <a
+              href="https://riyo.me"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="transition-colors hover:text-foreground hover:underline"
+            >
+              riyo.me
+            </a>
+            .
           </p>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <a
