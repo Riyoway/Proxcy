@@ -53,11 +53,11 @@ export default function AboutPage() {
 
       <section className="flex flex-wrap gap-3">
         <Link href="/contact">
-          <Button size="default">Contact</Button>
+          <Button size="lg">Contact</Button>
         </Link>
         <Link href="/dashboard">
           <Button
-            size="default"
+            size="lg"
             variant="outline"
           >
             Open Dashboard

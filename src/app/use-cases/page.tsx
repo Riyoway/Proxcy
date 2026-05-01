@@ -209,11 +209,11 @@ export default function UseCasesPage() {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link href="/dashboard">
-            <Button size="default">Open Dashboard</Button>
+            <Button size="lg">Open Dashboard</Button>
           </Link>
           <Link href="/api">
             <Button
-              size="default"
+              size="lg"
               variant="outline"
             >
               Read API spec

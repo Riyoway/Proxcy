@@ -156,14 +156,14 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/dashboard">
-              <Button size="default">
+              <Button size="lg">
                 Open Dashboard
-                <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
             <Link href="/api">
               <Button
-                size="default"
+                size="lg"
                 variant="outline"
               >
                 View API
@@ -171,7 +171,7 @@ export default function HomePage() {
             </Link>
             <Link href="/use-cases">
               <Button
-                size="default"
+                size="lg"
                 variant="ghost"
               >
                 Use cases
@@ -308,11 +308,11 @@ export default function HomePage() {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link href="/dashboard">
-            <Button size="default">Open Dashboard</Button>
+            <Button size="lg">Open Dashboard</Button>
           </Link>
           <Link href="/api">
             <Button
-              size="default"
+              size="lg"
               variant="outline"
             >
               Read API spec

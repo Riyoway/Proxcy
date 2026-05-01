@@ -76,11 +76,11 @@ export default function DocsPage() {
 
       <section className="flex flex-wrap gap-3">
         <Link href="/api">
-          <Button size="default">Read API spec</Button>
+          <Button size="lg">Read API spec</Button>
         </Link>
         <Link href="/use-cases">
           <Button
-            size="default"
+            size="lg"
             variant="outline"
           >
             See use cases

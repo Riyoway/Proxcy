@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { siteConfig } from "@/lib/site-config";
 
@@ -43,9 +44,13 @@ export const SiteFooter: React.FC = () => {
               href="/"
               className="flex items-center gap-2 text-sm font-semibold"
             >
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-primary/15 text-primary">
-                <span className="text-xs font-black">Px</span>
-              </span>
+              <Image
+                src="/icon.png"
+                alt=""
+                width={24}
+                height={24}
+                className="h-6 w-6 rounded-md"
+              />
               <span>{siteConfig.name}</span>
             </Link>
             <p className="max-w-xs text-xs leading-relaxed text-muted-foreground">

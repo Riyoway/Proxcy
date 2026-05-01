@@ -225,11 +225,11 @@ export default function ApiPage() {
 
       <section className="flex flex-wrap gap-3">
         <Link href="/dashboard">
-          <Button size="default">Build a query in the Dashboard</Button>
+          <Button size="lg">Build a query in the Dashboard</Button>
         </Link>
         <Link href="/use-cases">
           <Button
-            size="default"
+            size="lg"
             variant="outline"
           >
             See use cases

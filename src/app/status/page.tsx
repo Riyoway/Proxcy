@@ -270,11 +270,11 @@ export default async function StatusPage() {
 
       <section className="flex flex-wrap gap-3">
         <Link href="/dashboard">
-          <Button size="default">Open Dashboard</Button>
+          <Button size="lg">Open Dashboard</Button>
         </Link>
         <Link href="/stats">
           <Button
-            size="default"
+            size="lg"
             variant="outline"
           >
             View Stats
