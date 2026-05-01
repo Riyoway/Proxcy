@@ -89,7 +89,7 @@ export const SiteFooter: React.FC = () => {
               href="https://riyo.me"
               target="_blank"
               rel="noopener noreferrer"
-              className="transition-colors hover:text-foreground hover:underline"
+              className="text-xs text-muted-foreground transition-colors hover:text-foreground hover:underline"
             >
               riyo.me
             </a>
