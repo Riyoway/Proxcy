@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { normalizeCountryName } from "@/lib/country";
+import { CountUp } from "@/components/site/count-up";
 
 const ProxyMapView = dynamic(() => import("@/components/proxy-map-view").then((module) => module.ProxyMapView), {
   ssr: false,
@@ -619,7 +620,9 @@ const ProxyDashboard: React.FC = () => {
               <CardTitle className="text-sm font-semibold text-muted-foreground">Valid Proxies</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold tracking-tight">{validCount.toLocaleString()}</div>
+              <div className="text-3xl font-bold tracking-tight">
+                <CountUp end={validCount} duration={1200} delay={200} />
+              </div>
               <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">Working proxies</div>
             </CardContent>
           </Card>
@@ -653,7 +656,9 @@ const ProxyDashboard: React.FC = () => {
               </svg>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold tracking-tight">{googleCount.toLocaleString()}</div>
+              <div className="text-3xl font-bold tracking-tight">
+                <CountUp end={googleCount} duration={1200} delay={400} />
+              </div>
               <div className="text-xs text-muted-foreground mt-1 flex items-center gap-1">Can reach Google</div>
             </CardContent>
           </Card>
