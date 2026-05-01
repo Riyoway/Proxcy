@@ -187,7 +187,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="flex justify-center lg:justify-end">
+        <div className="relative flex min-h-[460px] items-center justify-center">
           <HeroTerminal />
         </div>
       </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 
 /**
  * Mac-style terminal that animates running a Python proxy-rotation script
@@ -134,6 +134,61 @@ export const HeroTerminal: React.FC = () => {
   const [stepIndex, setStepIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const tickRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Drag state - default centered by parent flex layout, shifted right
+  const [position, setPosition] = useState({ x: 120, y: 30 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const initialPositionRef = useRef({ x: 0, y: 0 });
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only drag from the title bar area
+    const target = e.target as HTMLElement;
+    if (!target.closest('[data-drag-handle]')) return;
+
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    initialPositionRef.current = { ...position };
+  }, [position]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging) return;
+
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+
+    setPosition({
+      x: initialPositionRef.current.x + dx,
+      y: initialPositionRef.current.y + dy,
+    });
+  }, [isDragging]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Global mouse events for drag
+  useEffect(() => {
+    if (isDragging) {
+      const onMouseMove = (e: MouseEvent) => {
+        const dx = e.clientX - dragStartRef.current.x;
+        const dy = e.clientY - dragStartRef.current.y;
+        setPosition({
+          x: initialPositionRef.current.x + dx,
+          y: initialPositionRef.current.y + dy,
+        });
+      };
+      const onMouseUp = () => setIsDragging(false);
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+
+      return () => {
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+    }
+  }, [isDragging]);
 
   // Pre-tokenize python lines (memoized; pure function of SCRIPT)
   const tokenized = useMemo(
@@ -276,11 +331,23 @@ export const HeroTerminal: React.FC = () => {
   return (
     <div
       aria-hidden="true"
-      className="ui-float-terminal relative w-full max-w-xl"
+      className="ui-float-terminal absolute w-full max-w-xl"
+      style={{
+        left: position.x,
+        top: position.y,
+        cursor: isDragging ? 'grabbing' : 'default',
+      }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
     >
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d0d11] shadow-2xl shadow-black/50 ring-1 ring-white/5">
-        {/* macOS title bar */}
-        <div className="relative flex h-9 items-center border-b border-white/5 bg-linear-to-b from-[#26262b] to-[#1c1c20] px-3">
+        {/* macOS title bar - draggable handle */}
+        <div
+          data-drag-handle
+          className="relative flex h-9 items-center border-b border-white/5 bg-linear-to-b from-[#26262b] to-[#1c1c20] px-3 cursor-grab active:cursor-grabbing hover:bg-linear-to-b hover:from-[#2d2d33] hover:to-[#232328]"
+        >
           <div className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded-full bg-[#ff5f57] ring-1 ring-black/20" />
             <span className="h-3 w-3 rounded-full bg-[#febc2e] ring-1 ring-black/20" />
@@ -297,10 +364,14 @@ export const HeroTerminal: React.FC = () => {
         </div>
       </div>
 
-      {/* Soft glow */}
+      {/* Soft glow - follows the terminal */}
       <div
         className="pointer-events-none absolute -inset-6 -z-10 rounded-3xl bg-primary/20 opacity-40 blur-3xl"
         aria-hidden="true"
+        style={{
+          left: -position.x * 0.3,
+          top: -position.y * 0.3,
+        }}
       />
     </div>
   );
