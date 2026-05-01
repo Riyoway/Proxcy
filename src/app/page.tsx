@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { FaqSection } from "@/components/site/faq-section";
 import { HeroTerminal } from "@/components/site/hero-terminal";
+import { ScrollReveal, StaggerContainer } from "@/components/site/scroll-reveal";
 import { siteConfig, absoluteUrl } from "@/lib/site-config";
 
 export const metadata: Metadata = {
@@ -185,128 +186,137 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section
-        aria-labelledby="features-heading"
-        className="space-y-8"
-      >
-        <div className="space-y-2">
-          <h2
-            id="features-heading"
-            className="text-2xl font-bold tracking-tight md:text-3xl"
-          >
-            Why Proxcy
-          </h2>
-          <p className="max-w-2xl text-sm text-muted-foreground">
-            Built for developers, scrapers, and AI agents that need a precise
-            proxy filter rather than a static list.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature) => (
-            <Card
-              key={feature.title}
-              className="border-border/50 bg-card/60 transition-colors hover:border-border"
-            >
-              <CardContent className="space-y-3 p-5">
-                <feature.icon className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold">{feature.title}</h3>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  {feature.body}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
-
-      <section
-        aria-labelledby="usecases-heading"
-        className="space-y-6"
-      >
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
+      <ScrollReveal direction="up" delay={100}>
+        <section
+          aria-labelledby="features-heading"
+          className="space-y-8"
+        >
+          <div className="space-y-2">
             <h2
-              id="usecases-heading"
+              id="features-heading"
               className="text-2xl font-bold tracking-tight md:text-3xl"
             >
-              What teams build with Proxcy
+              Why Proxcy
             </h2>
             <p className="max-w-2xl text-sm text-muted-foreground">
-              Common scenarios where filtered, fresh proxies matter.
+              Built for developers, scrapers, and AI agents that need a precise
+              proxy filter rather than a static list.
             </p>
           </div>
-          <Link
-            href="/use-cases"
-            className="text-xs font-medium text-primary hover:underline"
-          >
-            See all use cases →
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {useCasesPreview.map((uc) => (
-            <div
-              key={uc.title}
-              className="rounded-xl border border-border/50 bg-card/40 p-4"
-            >
-              <h3 className="text-sm font-semibold">{uc.title}</h3>
-              <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                {uc.body}
+          <StaggerContainer className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" staggerDelay={100}>
+            {features.map((feature) => (
+              <Card
+                key={feature.title}
+                className="border-border/50 bg-card/60 transition-colors hover:border-border"
+              >
+                <CardContent className="space-y-3 p-5">
+                  <feature.icon className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-semibold">{feature.title}</h3>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {feature.body}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </StaggerContainer>
+        </section>
+      </ScrollReveal>
+
+      <ScrollReveal direction="up" delay={100}>
+        <section
+          aria-labelledby="usecases-heading"
+          className="space-y-6"
+        >
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2
+                id="usecases-heading"
+                className="text-2xl font-bold tracking-tight md:text-3xl"
+              >
+                What teams build with Proxcy
+              </h2>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Common scenarios where filtered, fresh proxies matter.
               </p>
             </div>
-          ))}
-        </div>
-      </section>
+            <Link
+              href="/use-cases"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              See all use cases →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {useCasesPreview.map((uc) => (
+              <div
+                key={uc.title}
+                className="rounded-xl border border-border/50 bg-card/40 p-4"
+              >
+                <h3 className="text-sm font-semibold">{uc.title}</h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+                  {uc.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </ScrollReveal>
 
-      <section
-        aria-labelledby="performance-heading"
-        className="rounded-2xl border border-border/50 bg-card/60 p-8 md:p-10"
-      >
-        <h2
-          id="performance-heading"
-          className="text-2xl font-bold tracking-tight md:text-3xl"
+      <ScrollReveal direction="up" delay={100}>
+        <section
+          aria-labelledby="performance-heading"
+          className="rounded-2xl border border-border/50 bg-card/60 p-8 md:p-10"
         >
-          Performance you can pipe
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Every entry in the list is latency-tested before it ships. The
-          dashboard auto-refreshes on a fixed interval so you can rely on the
-          data without polling logs.
-        </p>
-        <dl className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">
-          <div>
-            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-              Latency-tested
-            </dt>
-            <dd className="mt-1 text-2xl font-bold tracking-tight">100%</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-              Auto-refresh
-            </dt>
-            <dd className="mt-1 text-2xl font-bold tracking-tight">60s</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-              Output
-            </dt>
-            <dd className="mt-1 text-2xl font-bold tracking-tight">Raw text</dd>
-          </div>
-        </dl>
-      </section>
+          <h2
+            id="performance-heading"
+            className="text-2xl font-bold tracking-tight md:text-3xl"
+          >
+            Performance you can pipe
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Every entry in the list is latency-tested before it ships. The
+            dashboard auto-refreshes on a fixed interval so you can rely on the
+            data without polling logs.
+          </p>
+          <dl className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">
+            <div>
+              <dt className="text-xs uppercase tracking-wider text-muted-foreground">
+                Latency-tested
+              </dt>
+              <dd className="mt-1 text-2xl font-bold tracking-tight">100%</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wider text-muted-foreground">
+                Auto-refresh
+              </dt>
+              <dd className="mt-1 text-2xl font-bold tracking-tight">60s</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wider text-muted-foreground">
+                Output
+              </dt>
+              <dd className="mt-1 text-2xl font-bold tracking-tight">Raw text</dd>
+            </div>
+          </dl>
+        </section>
+      </ScrollReveal>
 
-      <FaqSection
-        intro={`Quick answers about ${siteConfig.name}, the raw API, and how the data is collected.`}
-        faqs={faqs}
-      />
+      <ScrollReveal direction="up" delay={100}>
+        <FaqSection
+          intro={`Quick answers about ${siteConfig.name}, the raw API, and how the data is collected.`}
+          faqs={faqs}
+        />
+      </ScrollReveal>
 
-      <section className="rounded-2xl border border-primary/30 bg-primary/5 p-8 text-center md:p-12">
-        <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
-          Start filtering proxies in seconds
-        </h2>
-        <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
-          No signup. No JSON envelope. Just a raw, filtered proxy stream.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
+      <ScrollReveal direction="up" delay={100}>
+        <section className="rounded-2xl border border-primary/30 bg-primary/5 p-8 text-center md:p-12">
+          <h2 className="text-2xl font-bold tracking-tight md:text-3xl">
+            Start filtering proxies in seconds
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
+            No signup. No JSON envelope. Just a raw, filtered proxy stream.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link href="/dashboard">
             <Button size="lg">Open Dashboard</Button>
           </Link>
@@ -319,7 +329,8 @@ export default function HomePage() {
             </Button>
           </Link>
         </div>
-      </section>
+        </section>
+      </ScrollReveal>
 
       <script
         type="application/ld+json"
