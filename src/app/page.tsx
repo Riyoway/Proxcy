@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { DecryptedText } from "@/components/site/decrypted-text";
 import { FaqSection } from "@/components/site/faq-section";
 import { HeroTerminal } from "@/components/site/hero-terminal";
 import { ScrollReveal, StaggerContainer } from "@/components/site/scroll-reveal";
@@ -148,7 +149,12 @@ export default function HomePage() {
             id="hero-heading"
             className="text-4xl font-bold leading-[1.1] tracking-tight md:text-6xl"
           >
-            Filter live proxies by country, latency, and protocol.
+            <DecryptedText
+              text="Filter live proxies by country, latency, and protocol."
+              speed={12}
+              delay={200}
+              className="not-italic"
+            />
           </h1>
           <p className="max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
             {siteConfig.shortDescription} Query the raw API to retrieve a
