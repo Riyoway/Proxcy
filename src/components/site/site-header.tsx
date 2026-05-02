@@ -21,7 +21,7 @@ export const SiteHeader: React.FC = () => {
           aria-label={`${siteConfig.name} home`}
         >
           <Image
-            src="/icon.png"
+            src="/icon-512.png"
             alt=""
             width={32}
             height={32}

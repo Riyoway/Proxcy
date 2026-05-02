@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Mac-style terminal that animates running a Python proxy-rotation script
@@ -134,127 +134,6 @@ export const HeroTerminal: React.FC = () => {
   const [stepIndex, setStepIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const tickRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Responsive initial position based on viewport
-  const getResponsivePosition = useCallback(() => {
-    if (typeof window === 'undefined') return { x: 120, y: 30 };
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    // Mobile: hide terminal or position it much higher to avoid overlap
-    if (width < 768) {
-      // On very small screens, terminal overlaps with content below
-      // Position it near the top with minimal vertical offset
-      const terminalWidth = Math.min(width * 0.92, 400);
-      return {
-        x: (width - terminalWidth) / 2,
-        y: 10, // Near top of container, not pushing down into text
-      };
-    }
-    // Tablet: shift right less
-    if (width < 1024) {
-      return {
-        x: Math.min(80, width * 0.1),
-        y: 40,
-      };
-    }
-    // Desktop large: more right shift
-    if (width >= 1440) {
-      return {
-        x: 180,
-        y: 20,
-      };
-    }
-    // Desktop default
-    return {
-      x: 120,
-      y: 30,
-    };
-  }, []);
-
-  // Drag state - responsive initial position
-  const [position, setPosition] = useState({ x: 120, y: 30 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef({ x: 0, y: 0 });
-  const initialPositionRef = useRef({ x: 0, y: 0 });
-  const hasSetInitialPosition = useRef(false);
-  const hasUserDragged = useRef(false);
-
-  // Set responsive position on mount and window resize
-  useEffect(() => {
-    const updatePosition = () => {
-      const newPos = getResponsivePosition();
-      setPosition(newPos);
-      initialPositionRef.current = newPos;
-    };
-
-    // Only auto-update if user hasn't dragged yet
-    if (!hasSetInitialPosition.current) {
-      updatePosition();
-      hasSetInitialPosition.current = true;
-    }
-
-    const handleResize = () => {
-      // Only auto-reposition if user hasn't manually dragged the terminal
-      if (!hasUserDragged.current && !isDragging) {
-        const newPos = getResponsivePosition();
-        setPosition(newPos);
-        initialPositionRef.current = newPos;
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [getResponsivePosition, isDragging]);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only drag from the title bar area
-    const target = e.target as HTMLElement;
-    if (!target.closest('[data-drag-handle]')) return;
-
-    setIsDragging(true);
-    dragStartRef.current = { x: e.clientX, y: e.clientY };
-    initialPositionRef.current = { ...position };
-  }, [position]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging) return;
-
-    const dx = e.clientX - dragStartRef.current.x;
-    const dy = e.clientY - dragStartRef.current.y;
-
-    setPosition({
-      x: initialPositionRef.current.x + dx,
-      y: initialPositionRef.current.y + dy,
-    });
-  }, [isDragging]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  // Global mouse events for drag
-  useEffect(() => {
-    if (isDragging) {
-      const onMouseMove = (e: MouseEvent) => {
-        const dx = e.clientX - dragStartRef.current.x;
-        const dy = e.clientY - dragStartRef.current.y;
-        setPosition({
-          x: initialPositionRef.current.x + dx,
-          y: initialPositionRef.current.y + dy,
-        });
-      };
-      const onMouseUp = () => setIsDragging(false);
-
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-
-      return () => {
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-      };
-    }
-  }, [isDragging]);
 
   // Pre-tokenize python lines (memoized; pure function of SCRIPT)
   const tokenized = useMemo(
@@ -394,28 +273,15 @@ export const HeroTerminal: React.FC = () => {
     }
   }
 
-  // Detect mobile for drag disabling
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-
   return (
     <div
       aria-hidden="true"
       className="ui-float-terminal absolute w-full max-w-xl"
-      style={{
-        left: position.x,
-        top: position.y,
-        cursor: isDragging ? 'grabbing' : 'default',
-      }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
     >
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d0d11] shadow-2xl shadow-black/50 ring-1 ring-white/5">
-        {/* macOS title bar - draggable handle on desktop only */}
+        {/* macOS title bar */}
         <div
-          data-drag-handle={!isMobile ? true : undefined}
-          className={`relative flex h-9 items-center border-b border-white/5 bg-linear-to-b from-[#26262b] to-[#1c1c20] px-3 ${isMobile ? '' : 'cursor-grab active:cursor-grabbing hover:bg-linear-to-b hover:from-[#2d2d33] hover:to-[#232328]'}`}
+          className="relative flex h-9 items-center border-b border-white/5 bg-linear-to-b from-[#26262b] to-[#1c1c20] px-3"
         >
           <div className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded-full bg-[#ff5f57] ring-1 ring-black/20" />

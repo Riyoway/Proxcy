@@ -25,11 +25,14 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
+
   applicationName: siteConfig.name,
+
   title: {
     default: `${siteConfig.name} — Proxy filtering API and live proxy list`,
     template: `%s — ${siteConfig.name}`,
   },
+
   description: siteConfig.description,
   keywords: [...siteConfig.keywords],
   authors: [{ name: siteConfig.operator }],
@@ -37,6 +40,7 @@ export const metadata: Metadata = {
   publisher: siteConfig.operator,
   category: "technology",
   alternates: { canonical: "/" },
+
   openGraph: {
     type: "website",
     locale: siteConfig.locale,
@@ -45,6 +49,7 @@ export const metadata: Metadata = {
     title: `${siteConfig.name} — Proxy filtering API and live proxy list`,
     description: siteConfig.description,
   },
+
   twitter: {
     card: "summary_large_image",
     site: siteConfig.twitter.site,
@@ -52,6 +57,7 @@ export const metadata: Metadata = {
     title: `${siteConfig.name} — Proxy filtering API and live proxy list`,
     description: siteConfig.description,
   },
+
   robots: {
     index: true,
     follow: true,
@@ -63,7 +69,40 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+
+  // PWA manifest
   manifest: "/manifest.webmanifest",
+
+  // PWA icons (Android + iOS)
+  icons: {
+    icon: [
+      {
+        url: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+    apple: [
+      {
+        url: "/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
+
+  // iOS Safari PWA support
+  appleWebApp: {
+    capable: true,
+    title: siteConfig.name,
+    statusBarStyle: "default",
+  },
+
   formatDetection: { email: false, address: false, telephone: false },
 };
 
@@ -106,6 +145,7 @@ export default function RootLayout({
         <main className="flex-1">{children}</main>
         <SiteFooter />
         <ServiceWorkerRegistrar />
+
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}

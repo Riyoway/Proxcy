@@ -45,7 +45,7 @@ export const SiteFooter: React.FC = () => {
               className="flex items-center gap-2 text-sm font-semibold"
             >
               <Image
-                src="/icon.png"
+                src="/icon-512.png"
                 alt=""
                 width={24}
                 height={24}
