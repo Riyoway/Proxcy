@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   const country = searchParams.get('country');
   const protocol = searchParams.get('protocol');
   const google = searchParams.get('google');
+  const anonymity = searchParams.get('anonymity');
   const format = searchParams.get('format') || 'ip_port'; // ip_port or protocol_ip_port
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,6 +40,11 @@ export async function GET(request: Request) {
       `country_name.ilike.%${c}%`
     ]);
     query = query.or(orParts.join(','));
+  }
+
+  if (anonymity) {
+    const anonymityLevels = anonymity.split(',').map(a => a.trim().toLowerCase());
+    query = query.in('anonymity_level', anonymityLevels);
   }
 
   // Handle potential 1000 row limits by fetching in chunks if necessary, 

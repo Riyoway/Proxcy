@@ -8,12 +8,12 @@ import { siteConfig, absoluteUrl } from "@/lib/site-config";
 export const metadata: Metadata = {
   title: "API — Raw proxy filtering endpoint",
   description:
-    "Proxcy raw API specification. Filter live HTTP, HTTPS, SOCKS4, and SOCKS5 proxies by country, protocol, and Google reachability. Returns plain ip:port lines, not JSON.",
+    "Proxcy raw API specification. Filter live HTTP, HTTPS, SOCKS4, and SOCKS5 proxies by country, protocol, anonymity level (elite/anonymous/transparent), and Google reachability. Returns plain ip:port lines, not JSON.",
   alternates: { canonical: "/api" },
   openGraph: {
     title: "Proxcy API — raw proxy filtering endpoint",
     description:
-      "GET /api/raw returns plain ip:port lines. Filter by protocol, country, and Google reachability.",
+      "GET /api/raw returns plain ip:port lines. Filter by protocol, country, anonymity level, and Google reachability.",
     url: absoluteUrl("/api"),
     type: "article",
   },
@@ -43,6 +43,14 @@ const params = [
     notes:
       "true to return only proxies that successfully reached https://www.google.com/generate_204. false for proxies that failed the Google check.",
     example: "google=true",
+  },
+  {
+    name: "anonymity",
+    type: "string",
+    required: false,
+    notes:
+      "Comma-separated. Allowed values: elite, anonymous, transparent. Filters by anonymity level detected via httpbin.org/headers inspection. elite = high anonymity (no revealing headers), anonymous = proxy detected but real IP hidden, transparent = real IP exposed.",
+    example: "anonymity=elite,anonymous",
   },
   {
     name: "format",
@@ -176,6 +184,16 @@ export default function ApiPage() {
             <pre className="overflow-x-auto rounded-xl border border-border/50 bg-card/60 p-4 text-xs leading-relaxed">
               <code className="font-mono">
                 curl &quot;{apiBase}?country=us,jp&amp;format=protocol_ip_port&quot;
+              </code>
+            </pre>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-semibold text-muted-foreground">
+              High anonymity (elite) SOCKS5 proxies
+            </p>
+            <pre className="overflow-x-auto rounded-xl border border-border/50 bg-card/60 p-4 text-xs leading-relaxed">
+              <code className="font-mono">
+                curl &quot;{apiBase}?protocol=socks5&amp;anonymity=elite&amp;google=true&quot;
               </code>
             </pre>
           </div>

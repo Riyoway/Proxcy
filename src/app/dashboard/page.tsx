@@ -448,9 +448,12 @@ const ProxyDashboard: React.FC = () => {
     } else if (googleAccessFilter === "no") {
       params.set("google", "false");
     }
+    if (anonymityFilter !== "all") {
+      params.set("anonymity", anonymityFilter);
+    }
     const q = params.toString();
     return `/api/raw${q ? "?" + q : ""}`;
-  }, [countryFilters, protocolFilters, googleAccessFilter]);
+  }, [countryFilters, protocolFilters, googleAccessFilter, anonymityFilter]);
 
   const SortIcon: React.FC<{ field: SortField }> = ({ field }) => {
     if (sortField !== field) return <ChevronsUpDown className={getSortIconClassName(field)} />;
