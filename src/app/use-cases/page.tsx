@@ -174,7 +174,7 @@ export default function UseCasesPage() {
             id={uc.slug}
             className="rounded-2xl border border-border/50 bg-card/60 p-6"
           >
-            <uc.icon className="h-4 w-4 text-primary" />
+            <uc.icon className="h-5 w-5 text-primary" />
             <h2 className="mt-3 text-lg font-semibold">{uc.title}</h2>
             <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
               {uc.summary}

@@ -354,7 +354,7 @@ export const HeroTerminal: React.FC = () => {
             <span className="h-3 w-3 rounded-full bg-[#28c840] ring-1 ring-black/20" />
           </div>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[11px] font-medium tracking-wide text-zinc-400">
-            rotate.py — proxcy
+            <span className="pointer-events-none select-none">rotate.py — proxcy</span>
           </div>
         </div>
 

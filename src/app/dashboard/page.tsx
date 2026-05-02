@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { formatDistanceToNow } from "date-fns";
-import { Search, Download, ChevronDown, ChevronUp, ChevronsUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Globe, Cable, MapPinned, ShieldCheck, Gauge, Clock3, Fingerprint, BarChart3 } from "lucide-react";
+import { Search, Download, ChevronDown, ChevronUp, ChevronsUpDown, Filter, X, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Globe, Cable, MapPinned, Shield, ShieldCheck, Gauge, Clock3, Fingerprint, BarChart3, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -67,6 +67,7 @@ interface ProxyRecord {
   speed_ms: number;
   is_valid: boolean;
   is_google: boolean;
+  anonymity_level: "transparent" | "anonymous" | "elite" | null;
   country_code: string | null;
   country_name: string | null;
   asn: string | null;
@@ -75,7 +76,7 @@ interface ProxyRecord {
   checked_at: string;
 }
 
-type SortField = "ip" | "port" | "country_name" | "protocol" | "organization" | "speed_ms" | "is_google" | "checked_at";
+type SortField = "ip" | "port" | "country_name" | "protocol" | "organization" | "speed_ms" | "is_google" | "anonymity_level" | "checked_at";
 type SortDirection = "asc" | "desc";
 type ViewMode = "list" | "map";
 const emojiFontFamily = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif';
@@ -177,6 +178,9 @@ const TableSkeleton: React.FC = () => (
           <Skeleton className="h-6 w-18 rounded-full" />
         </TableCell>
         <TableCell>
+          <Skeleton className="h-5 w-16 rounded-full" />
+        </TableCell>
+        <TableCell>
           <Skeleton className="h-4 w-20" />
         </TableCell>
       </TableRow>
@@ -196,6 +200,7 @@ const ProxyDashboard: React.FC = () => {
   const [pageSize] = useState(15);
   const [protocolFilters, setProtocolFilters] = useState<Set<string>>(new Set());
   const [googleAccessFilter, setGoogleAccessFilter] = useState<"all" | "yes" | "no">("all");
+  const [anonymityFilter, setAnonymityFilter] = useState<"all" | "elite" | "anonymous" | "transparent">("all");
   const [countryFilters, setCountryFilters] = useState<Set<string>>(new Set());
   const [countrySearch, setCountrySearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -286,10 +291,11 @@ const ProxyDashboard: React.FC = () => {
       const protocolUpper = item.protocol.toUpperCase();
       const matchesProtocol = protocolFilters.size === 0 || protocolFilters.has(protocolUpper);
       const matchesGoogle = googleAccessFilter === "all" || (googleAccessFilter === "yes" && item.is_google) || (googleAccessFilter === "no" && !item.is_google);
+      const matchesAnonymity = anonymityFilter === "all" || item.anonymity_level === anonymityFilter;
 
-      return matchesSearch && matchesProtocol && matchesGoogle;
+      return matchesSearch && matchesProtocol && matchesGoogle && matchesAnonymity;
     });
-  }, [data, searchQuery, protocolFilters, googleAccessFilter]);
+  }, [data, searchQuery, protocolFilters, googleAccessFilter, anonymityFilter]);
 
   const filteredAndSortedData = useMemo(() => {
     const filtered = baseFilteredData.filter((item) => {
@@ -318,6 +324,17 @@ const ProxyDashboard: React.FC = () => {
       if (sortField === "is_google") {
         const aVal = Number(a.is_google);
         const bVal = Number(b.is_google);
+
+        if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      }
+
+      if (sortField === "anonymity_level") {
+        // Order: elite > anonymous > transparent > null
+        const levelRank: Record<string, number> = { elite: 3, anonymous: 2, transparent: 1 };
+        const aVal = levelRank[a.anonymity_level ?? ""] ?? 0;
+        const bVal = levelRank[b.anonymity_level ?? ""] ?? 0;
 
         if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
         if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
@@ -397,6 +414,7 @@ const ProxyDashboard: React.FC = () => {
   const clearFilters = useCallback(() => {
     setProtocolFilters(new Set());
     setGoogleAccessFilter("all");
+    setAnonymityFilter("all");
     setCountryFilters(new Set());
     setSearchQuery("");
     setCurrentPage(1);
@@ -415,7 +433,7 @@ const ProxyDashboard: React.FC = () => {
     setCurrentPage(1);
   }, []);
 
-  const hasActiveFilters = protocolFilters.size > 0 || googleAccessFilter !== "all" || countryFilters.size > 0 || searchQuery !== "";
+  const hasActiveFilters = protocolFilters.size > 0 || googleAccessFilter !== "all" || anonymityFilter !== "all" || countryFilters.size > 0 || searchQuery !== "";
 
   const rawApiUrl = useMemo(() => {
     const params = new URLSearchParams();
@@ -852,6 +870,67 @@ const ProxyDashboard: React.FC = () => {
                       </DropdownMenuContent>
                     </DropdownMenu>
 
+                    {/* Anonymity Level Filter */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[110px]")}>
+                        <Shield className="h-3.5 w-3.5" />
+                        Anonymity
+                        {anonymityFilter !== "all" && (
+                          <Badge
+                            variant="secondary"
+                            className="ml-1.5 h-4 w-4 rounded-sm p-0 flex items-center justify-center"
+                          >
+                            1
+                          </Badge>
+                        )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-44"
+                      >
+                        <DropdownMenuCheckboxItem
+                          checked={anonymityFilter === "all"}
+                          onCheckedChange={() => {
+                            setAnonymityFilter("all");
+                            setCurrentPage(1);
+                          }}
+                          className="text-xs font-medium"
+                        >
+                          All
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          checked={anonymityFilter === "elite"}
+                          onCheckedChange={() => {
+                            setAnonymityFilter("elite");
+                            setCurrentPage(1);
+                          }}
+                          className="text-xs font-medium"
+                        >
+                          Elite (High)
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          checked={anonymityFilter === "anonymous"}
+                          onCheckedChange={() => {
+                            setAnonymityFilter("anonymous");
+                            setCurrentPage(1);
+                          }}
+                          className="text-xs font-medium"
+                        >
+                          Anonymous
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          checked={anonymityFilter === "transparent"}
+                          onCheckedChange={() => {
+                            setAnonymityFilter("transparent");
+                            setCurrentPage(1);
+                          }}
+                          className="text-xs font-medium"
+                        >
+                          Transparent
+                        </DropdownMenuCheckboxItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
                     {/* Country Filter */}
                     <DropdownMenu onOpenChange={(open) => !open && setCountrySearch("")}>
                       <DropdownMenuTrigger className={cn(filterTriggerClassName, "min-w-[84px]")}>
@@ -1026,6 +1105,7 @@ const ProxyDashboard: React.FC = () => {
                               className={cn(sortButtonClassName, "justify-start")}
                             >
                               <span className={cn(getSortLabelClassName("port"), "inline-flex items-center gap-1.5")}>
+                                <Network className="h-3.5 w-3.5 opacity-70" />
                                 Port
                               </span>
                               <SortIcon field="port" />
@@ -1104,6 +1184,21 @@ const ProxyDashboard: React.FC = () => {
                             </button>
                           </TableHead>
 
+                          {/* Anonymity Level */}
+                          <TableHead className="w-[110px]">
+                            <button
+                              type="button"
+                              onClick={() => handleSort("anonymity_level")}
+                              className={cn(sortButtonClassName, "justify-start")}
+                            >
+                              <span className={cn(getSortLabelClassName("anonymity_level"), "inline-flex items-center gap-1.5")}>
+                                <Shield className="h-3.5 w-3.5 opacity-70" />
+                                Anonymity
+                              </span>
+                              <SortIcon field="anonymity_level" />
+                            </button>
+                          </TableHead>
+
                           <TableHead className="w-[120px] text-right">
                             <button
                               type="button"
@@ -1126,7 +1221,7 @@ const ProxyDashboard: React.FC = () => {
                         ) : paginatedData.length === 0 ? (
                           <TableRow>
                             <TableCell
-                              colSpan={8}
+                              colSpan={9}
                               className="h-32 text-center text-sm text-muted-foreground"
                             >
                               No proxies found matching your criteria.
@@ -1207,6 +1302,41 @@ const ProxyDashboard: React.FC = () => {
                                   >
                                     <X className="w-3 h-3 mr-1" />
                                     Blocked
+                                  </Badge>
+                                )}
+                              </TableCell>
+
+                              <TableCell>
+                                {proxy.anonymity_level === "elite" ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-indigo-500/8 text-indigo-600 dark:text-indigo-400 border-indigo-500/15 text-[10px] py-0 px-1.5 shadow-sm shadow-indigo-500/5 group-hover:bg-indigo-500/14 transition-colors font-medium"
+                                  >
+                                    <Shield className="w-3 h-3 mr-1" />
+                                    Elite
+                                  </Badge>
+                                ) : proxy.anonymity_level === "anonymous" ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-blue-500/8 text-blue-600 dark:text-blue-400 border-blue-500/15 text-[10px] py-0 px-1.5 shadow-sm shadow-blue-500/5 group-hover:bg-blue-500/14 transition-colors font-medium"
+                                  >
+                                    <Shield className="w-3 h-3 mr-1" />
+                                    Anonymous
+                                  </Badge>
+                                ) : proxy.anonymity_level === "transparent" ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-orange-500/8 text-orange-600 dark:text-orange-400 border-orange-500/15 text-[10px] py-0 px-1.5 shadow-sm shadow-orange-500/5 group-hover:bg-orange-500/14 transition-colors font-medium"
+                                  >
+                                    <Shield className="w-3 h-3 mr-1" />
+                                    Transparent
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-muted/50 text-muted-foreground border-muted text-[10px] py-0 px-1.5"
+                                  >
+                                    Unknown
                                   </Badge>
                                 )}
                               </TableCell>
