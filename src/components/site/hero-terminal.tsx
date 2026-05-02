@@ -141,12 +141,14 @@ export const HeroTerminal: React.FC = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    // Mobile: center horizontally, lower position
+    // Mobile: hide terminal or position it much higher to avoid overlap
     if (width < 768) {
-      const terminalWidth = Math.min(width * 0.9, 480);
+      // On very small screens, terminal overlaps with content below
+      // Position it near the top with minimal vertical offset
+      const terminalWidth = Math.min(width * 0.92, 400);
       return {
-        x: (width - terminalWidth) / 2 - width * 0.05,
-        y: Math.max(20, height * 0.15),
+        x: (width - terminalWidth) / 2,
+        y: 10, // Near top of container, not pushing down into text
       };
     }
     // Tablet: shift right less
@@ -176,6 +178,7 @@ export const HeroTerminal: React.FC = () => {
   const dragStartRef = useRef({ x: 0, y: 0 });
   const initialPositionRef = useRef({ x: 0, y: 0 });
   const hasSetInitialPosition = useRef(false);
+  const hasUserDragged = useRef(false);
 
   // Set responsive position on mount and window resize
   useEffect(() => {
@@ -192,8 +195,8 @@ export const HeroTerminal: React.FC = () => {
     }
 
     const handleResize = () => {
-      // Recalculate on resize but only if not currently dragging
-      if (!isDragging) {
+      // Only auto-reposition if user hasn't manually dragged the terminal
+      if (!hasUserDragged.current && !isDragging) {
         const newPos = getResponsivePosition();
         setPosition(newPos);
         initialPositionRef.current = newPos;
@@ -391,6 +394,9 @@ export const HeroTerminal: React.FC = () => {
     }
   }
 
+  // Detect mobile for drag disabling
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
   return (
     <div
       aria-hidden="true"
@@ -406,10 +412,10 @@ export const HeroTerminal: React.FC = () => {
       onMouseLeave={handleMouseUp}
     >
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d0d11] shadow-2xl shadow-black/50 ring-1 ring-white/5">
-        {/* macOS title bar - draggable handle */}
+        {/* macOS title bar - draggable handle on desktop only */}
         <div
-          data-drag-handle
-          className="relative flex h-9 items-center border-b border-white/5 bg-linear-to-b from-[#26262b] to-[#1c1c20] px-3 cursor-grab active:cursor-grabbing hover:bg-linear-to-b hover:from-[#2d2d33] hover:to-[#232328]"
+          data-drag-handle={!isMobile ? true : undefined}
+          className={`relative flex h-9 items-center border-b border-white/5 bg-linear-to-b from-[#26262b] to-[#1c1c20] px-3 ${isMobile ? '' : 'cursor-grab active:cursor-grabbing hover:bg-linear-to-b hover:from-[#2d2d33] hover:to-[#232328]'}`}
         >
           <div className="flex items-center gap-1.5">
             <span className="h-3 w-3 rounded-full bg-[#ff5f57] ring-1 ring-black/20" />
