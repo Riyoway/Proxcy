@@ -135,11 +135,74 @@ export const HeroTerminal: React.FC = () => {
   const [charIndex, setCharIndex] = useState(0);
   const tickRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Drag state - default centered by parent flex layout, shifted right
+  // Responsive initial position based on viewport
+  const getResponsivePosition = useCallback(() => {
+    if (typeof window === 'undefined') return { x: 120, y: 30 };
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // Mobile: center horizontally, lower position
+    if (width < 768) {
+      const terminalWidth = Math.min(width * 0.9, 480);
+      return {
+        x: (width - terminalWidth) / 2 - width * 0.05,
+        y: Math.max(20, height * 0.15),
+      };
+    }
+    // Tablet: shift right less
+    if (width < 1024) {
+      return {
+        x: Math.min(80, width * 0.1),
+        y: 40,
+      };
+    }
+    // Desktop large: more right shift
+    if (width >= 1440) {
+      return {
+        x: 180,
+        y: 20,
+      };
+    }
+    // Desktop default
+    return {
+      x: 120,
+      y: 30,
+    };
+  }, []);
+
+  // Drag state - responsive initial position
   const [position, setPosition] = useState({ x: 120, y: 30 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const initialPositionRef = useRef({ x: 0, y: 0 });
+  const hasSetInitialPosition = useRef(false);
+
+  // Set responsive position on mount and window resize
+  useEffect(() => {
+    const updatePosition = () => {
+      const newPos = getResponsivePosition();
+      setPosition(newPos);
+      initialPositionRef.current = newPos;
+    };
+
+    // Only auto-update if user hasn't dragged yet
+    if (!hasSetInitialPosition.current) {
+      updatePosition();
+      hasSetInitialPosition.current = true;
+    }
+
+    const handleResize = () => {
+      // Recalculate on resize but only if not currently dragging
+      if (!isDragging) {
+        const newPos = getResponsivePosition();
+        setPosition(newPos);
+        initialPositionRef.current = newPos;
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [getResponsivePosition, isDragging]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // Only drag from the title bar area
