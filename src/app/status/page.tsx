@@ -21,7 +21,9 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const FRESHNESS_THRESHOLD_MS = 15 * 60 * 1000; // 15 min
+// Adjusted for checker cycle time (can take 4+ hours for full proxy list)
+const FRESHNESS_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours = operational
+const DEGRADED_THRESHOLD_MS = 12 * 60 * 60 * 1000; // 12 hours = degraded
 
 type ServiceState = "operational" | "degraded" | "down" | "unknown";
 
@@ -88,7 +90,7 @@ async function loadStatus(): Promise<StatusSnapshot> {
     const state: ServiceState =
       freshnessMs < FRESHNESS_THRESHOLD_MS
         ? "operational"
-        : freshnessMs < FRESHNESS_THRESHOLD_MS * 4
+        : freshnessMs < DEGRADED_THRESHOLD_MS
           ? "degraded"
           : "down";
 
@@ -190,9 +192,9 @@ export default async function StatusPage() {
           </span>
         </div>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          The list is considered fresh when it was updated within the last 15
-          minutes. Older updates are reported as degraded; updates older than
-          one hour mark live data as down.
+          Data is considered fresh when updated within the last 6 hours.
+          Older updates are marked as degraded; updates older than 12 hours
+          indicate the data may be stale.
         </p>
       </section>
 
