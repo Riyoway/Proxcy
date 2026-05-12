@@ -201,7 +201,7 @@ export default async function StatusPage() {
       <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="rounded-xl border border-border/50 bg-card/60 p-5">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            Last update
+            Latest cycle
           </p>
           <p className="mt-1 text-2xl font-bold tracking-tight">
             {formatFreshness(status.freshnessMs)}

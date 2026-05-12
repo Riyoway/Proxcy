@@ -1208,7 +1208,10 @@ const ProxyDashboard: React.FC = () => {
                               onClick={() => handleSort("checked_at")}
                               className={cn(sortButtonClassName, "justify-end")}
                             >
-                              <span className={cn(getSortLabelClassName("checked_at"), "inline-flex items-center gap-1.5")}>
+                              <span
+                                className={cn(getSortLabelClassName("checked_at"), "inline-flex items-center gap-1.5")}
+                                title="When this individual proxy was last verified (not the overall checker cycle)"
+                              >
                                 <Clock3 className="h-3.5 w-3.5 opacity-70" />
                                 Updated
                               </span>
