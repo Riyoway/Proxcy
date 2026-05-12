@@ -58,7 +58,7 @@ const features = [
   {
     icon: Zap,
     title: "Live data, no stale dumps",
-    body: "The list is refreshed continuously. The dashboard auto-refreshes every 60 seconds.",
+    body: "The list is refreshed continuously. The dashboard auto-refreshes every 3 minutes.",
   },
 ];
 

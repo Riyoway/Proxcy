@@ -36,7 +36,7 @@ const useCases = [
     details: [
       "Pull a country-specific batch from /api/raw and pipe it into your scraper.",
       "Filter by SOCKS5 for tools that prefer non-HTTP tunnels.",
-      "Refresh the proxy pool every 60 seconds to swap out dead nodes.",
+      "Refresh the proxy pool every 3 minutes to swap out dead nodes.",
     ],
   },
   {

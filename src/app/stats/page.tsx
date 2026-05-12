@@ -53,7 +53,7 @@ const StatsPage: React.FC = () => {
 
   useEffect(() => {
     load();
-    const intervalId = setInterval(load, 60000);
+    const intervalId = setInterval(load, 180000);
     return () => clearInterval(intervalId);
   }, [load]);
 

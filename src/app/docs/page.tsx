@@ -31,7 +31,7 @@ const sections = [
   },
   {
     title: "Freshness",
-    body: "The list is refreshed continuously and the dashboard auto-refreshes every 60 seconds. The /status page reports the freshness of the most recent update.",
+    body: "The list is refreshed continuously and the dashboard auto-refreshes every 3 minutes. The /status page reports the freshness of the most recent update.",
   },
   {
     title: "Reliability",
