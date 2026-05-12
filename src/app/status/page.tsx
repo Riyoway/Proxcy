@@ -161,7 +161,7 @@ export default async function StatusPage() {
     },
     {
       name: "Live data",
-      description: "Freshness of the proxy list",
+      description: "Last checker cycle",
       state: status.state,
     },
     {
@@ -192,9 +192,9 @@ export default async function StatusPage() {
           </span>
         </div>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Data is considered fresh when updated within the last 6 hours.
-          Older updates are marked as degraded; updates older than 12 hours
-          indicate the data may be stale.
+          Checker is considered healthy when it ran within the last 6 hours.
+          Older runs are marked as degraded; no runs for 12 hours
+          indicate the checker may be stalled.
         </p>
       </section>
 

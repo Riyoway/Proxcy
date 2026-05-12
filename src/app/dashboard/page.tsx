@@ -267,7 +267,7 @@ const ProxyDashboard: React.FC = () => {
     fetchProxies();
     const intervalId = setInterval(() => {
       fetchProxies();
-    }, 60000); // 60 seconds auto-refresh
+    }, 180000); // 3 minutes — matches checker cycle
 
     return () => clearInterval(intervalId);
   }, [fetchProxies]);
@@ -693,7 +693,7 @@ const ProxyDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold tracking-tight text-foreground">Online</div>
-              <div className="text-xs text-muted-foreground mt-1">Auto-refreshing every 60 seconds</div>
+              <div className="text-xs text-muted-foreground mt-1">Auto-refreshing every 3 minutes</div>
             </CardContent>
           </Card>
         </div>
