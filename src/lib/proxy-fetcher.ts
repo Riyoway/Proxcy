@@ -107,3 +107,19 @@ export async function fetchProxyHistory(hours = 12): Promise<ProxyHistoryRecord[
   if (error) throw error;
   return data || [];
 }
+
+export async function fetchProxyHistoryByCount(limit = 30): Promise<ProxyHistoryRecord[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error("Supabase environment variables are missing.");
+  }
+
+  const { data, error } = await supabase
+    .from("proxy_history")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data || []).reverse();
+}

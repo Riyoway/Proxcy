@@ -150,6 +150,47 @@ export function aggregateHistoryByHour(records: ProxyHistoryRecord[], hours = 24
   return Array.from(buckets.values());
 }
 
+export function aggregateHistoryByDay(records: ProxyHistoryRecord[], days = 7): TimeSeriesDatum[] {
+  const map = new Map<string, { count: number; google: number; date: Date; label: string }>();
+
+  for (const record of records) {
+    const date = new Date(record.created_at);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const label = `${date.getMonth() + 1}/${date.getDate()}`;
+    const existing = map.get(key);
+    if (!existing || date.getTime() > existing.date.getTime()) {
+      map.set(key, { count: record.total_valid, google: record.total_google, date, label });
+    }
+  }
+
+  return Array.from(map.values())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .slice(-days)
+    .map((d) => ({ hour: d.label, count: d.count, google: d.google }));
+}
+
+export function labelHistoryWithDayBoundaries(records: ProxyHistoryRecord[]): TimeSeriesDatum[] {
+  const sorted = [...records].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  const seenDates = new Set<string>();
+  return sorted.map((record, index) => {
+    const date = new Date(record.created_at);
+    const dateKey = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+    const isFirstOfDay = !seenDates.has(dateKey);
+    seenDates.add(dateKey);
+    // ▸ prefix = display this label; · prefix = hidden tick (but unique for hover)
+    const label = isFirstOfDay
+      ? `▸${date.getMonth() + 1}/${date.getDate()}`
+      : `·${index}`;
+    return {
+      hour: label,
+      count: record.total_valid,
+      google: record.total_google,
+    };
+  });
+}
+
 export function computeGoogleAccess(records: ProxyStatRecord[]): GoogleAccessDatum[] {
   const accessible = records.filter((r) => r.is_google).length;
   const blocked = records.length - accessible;

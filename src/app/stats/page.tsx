@@ -15,10 +15,10 @@ import {
   computeFastestProxy,
   computeGoogleAccess,
   groupByCountry,
-  aggregateHistoryByHour,
   groupByHour,
   groupByOrganization,
   groupByProtocol,
+  labelHistoryWithDayBoundaries,
 } from "@/lib/proxy-stats-data";
 import { StatCard } from "@/components/stats/stat-card";
 import { ProtocolChart } from "@/components/stats/protocol-chart";
@@ -38,7 +38,7 @@ const StatsPage: React.FC = () => {
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [data, historyData] = await Promise.all([fetchAllProxies(), fetchProxyHistory()]);
+      const [data, historyData] = await Promise.all([fetchAllProxies(), fetchProxyHistory(24 * 7)]);
       setRecords(data);
       setHistoryRecords(historyData);
       setLoadError(null);
@@ -72,7 +72,7 @@ const StatsPage: React.FC = () => {
   const speedData = useMemo(() => bucketBySpeed(records), [records]);
   const timeseriesData = useMemo(() => {
     if (historyRecords.length > 0) {
-      return aggregateHistoryByHour(historyRecords, 12);
+      return labelHistoryWithDayBoundaries(historyRecords);
     }
     return groupByHour(records, 12);
   }, [historyRecords, records]);
@@ -150,7 +150,7 @@ const StatsPage: React.FC = () => {
         </div>
 
         {/* Time series */}
-        <StatCard title="Checks Over Last 12h" description="Hourly validated proxies including Google-accessible share">
+        <StatCard title="Checks Over Last 7 Days" description="Every cycle with date labels at day boundaries">
           {isLoading && records.length === 0 ? <Skeleton className="h-[260px] w-full rounded-md" /> : <TimeSeriesChart data={timeseriesData} />}
         </StatCard>
 

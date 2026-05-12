@@ -9,6 +9,20 @@ interface TimeSeriesChartProps {
   data: TimeSeriesDatum[];
 }
 
+const CustomTick: React.FC<{ x?: number; y?: number; payload?: { value: string } }> = ({
+  x,
+  y,
+  payload,
+}) => {
+  const value = payload?.value ?? "";
+  if (!value.startsWith("▸")) return null;
+  return (
+    <text x={x} y={y} dy={16} textAnchor="middle" fill={chartTheme.axis} fontSize={11}>
+      {value.slice(1)}
+    </text>
+  );
+};
+
 export const TimeSeriesChart: React.FC<TimeSeriesChartProps> = ({ data }) => {
   return (
     <ResponsiveContainer width="100%" height={260}>
@@ -24,7 +38,7 @@ export const TimeSeriesChart: React.FC<TimeSeriesChartProps> = ({ data }) => {
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
-        <XAxis dataKey="hour" stroke={chartTheme.axis} fontSize={11} interval="preserveStartEnd" />
+        <XAxis dataKey="hour" stroke={chartTheme.axis} fontSize={11} interval={0} tick={<CustomTick />} />
         <YAxis stroke={chartTheme.axis} fontSize={11} allowDecimals={false} />
         <Tooltip
           contentStyle={{
@@ -36,8 +50,8 @@ export const TimeSeriesChart: React.FC<TimeSeriesChartProps> = ({ data }) => {
           }}
         />
         <Legend wrapperStyle={{ fontSize: 12, color: chartTheme.axis }} />
-        <Area type="monotone" dataKey="count" name="Checks" stroke={chartTheme.primary} fill="url(#countGradient)" strokeWidth={2} />
-        <Area type="monotone" dataKey="google" name="Google OK" stroke={chartTheme.success} fill="url(#googleGradient)" strokeWidth={2} />
+        <Area type="monotone" dataKey="count" name="Checks" stroke={chartTheme.primary} fill="url(#countGradient)" strokeWidth={2} activeDot={{ r: 4, stroke: chartTheme.primary, strokeWidth: 2 }} />
+        <Area type="monotone" dataKey="google" name="Google OK" stroke={chartTheme.success} fill="url(#googleGradient)" strokeWidth={2} activeDot={{ r: 4, stroke: chartTheme.success, strokeWidth: 2 }} />
       </AreaChart>
     </ResponsiveContainer>
   );
