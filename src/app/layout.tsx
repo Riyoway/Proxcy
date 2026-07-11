@@ -1,0 +1,198 @@
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+import { SiteHeader } from "@/components/site/site-header";
+import { SiteFooter } from "@/components/site/site-footer";
+import { ServiceWorkerRegistrar } from "@/components/site/service-worker-registrar";
+import { siteConfig, absoluteUrl } from "@/lib/site-config";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+export const viewport: Viewport = {
+  themeColor: siteConfig.themeColor,
+  colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+};
+
+export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.url),
+
+  applicationName: siteConfig.name,
+
+  title: {
+    default: `${siteConfig.name}`,
+    template: `%s — ${siteConfig.name}`,
+  },
+
+  description: siteConfig.description,
+  keywords: [...siteConfig.keywords],
+  authors: [{ name: siteConfig.operator }],
+  creator: siteConfig.operator,
+  publisher: siteConfig.operator,
+  category: "technology",
+  alternates: { canonical: "/" },
+
+  openGraph: {
+    type: "website",
+    locale: siteConfig.locale,
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    title: `${siteConfig.name}`,
+    description: siteConfig.description,
+    images: [{ url: "/icon-512.png", width: 512, height: 512, alt: siteConfig.name }],
+  },
+
+  twitter: {
+    card: "summary",
+    site: siteConfig.twitter.site,
+    creator: siteConfig.twitter.handle,
+    title: `${siteConfig.name}`,
+    description: siteConfig.description,
+    images: ["/icon-512.png"],
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
+  },
+
+  // PWA manifest
+  manifest: "/manifest.webmanifest",
+
+  // PWA icons (Android + iOS)
+  icons: {
+    icon: [
+      {
+        url: "/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+      },
+      {
+        url: "/icon-512.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
+    ],
+    apple: [
+      {
+        url: "/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
+
+  // iOS Safari PWA support
+  appleWebApp: {
+    capable: true,
+    title: siteConfig.name,
+    statusBarStyle: "default",
+  },
+
+  formatDetection: { email: false, address: false, telephone: false },
+};
+
+const organizationLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: siteConfig.name,
+  url: siteConfig.url,
+  founder: { "@type": "Person", name: siteConfig.operator },
+  sameAs: [siteConfig.social.github],
+};
+
+const websiteLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: siteConfig.name,
+  url: siteConfig.url,
+  inLanguage: siteConfig.language,
+  publisher: { "@type": "Organization", name: siteConfig.name },
+  potentialAction: {
+    "@type": "SearchAction",
+    target: `${absoluteUrl("/")}?q={search_term_string}`,
+    "query-input": "required name=search_term_string",
+  },
+};
+
+const devServiceWorkerCleanupScript =
+  process.env.NODE_ENV === "production"
+    ? null
+    : `
+(async () => {
+  try {
+    let shouldReload = false;
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      if (registrations.length > 0) {
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+        shouldReload = true;
+      }
+    }
+    if ("caches" in window) {
+      const cacheNames = await caches.keys();
+      const proxcyCaches = cacheNames.filter((name) => name.startsWith("proxcy-"));
+      if (proxcyCaches.length > 0) {
+        await Promise.all(proxcyCaches.map((name) => caches.delete(name)));
+        shouldReload = true;
+      }
+    }
+    if (shouldReload && !sessionStorage.getItem("proxcy-dev-sw-cleaned")) {
+      sessionStorage.setItem("proxcy-dev-sw-cleaned", "1");
+      location.reload();
+    }
+  } catch {
+    // Ignore dev-only service worker cleanup failures.
+  }
+})();
+`;
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html
+      lang={siteConfig.language}
+      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">
+        {devServiceWorkerCleanupScript ? (
+          <script
+            dangerouslySetInnerHTML={{ __html: devServiceWorkerCleanupScript }}
+          />
+        ) : null}
+        <SiteHeader />
+        <main className="flex-1">{children}</main>
+        <SiteFooter />
+        <ServiceWorkerRegistrar />
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteLd) }}
+        />
+      </body>
+    </html>
+  );
+}
