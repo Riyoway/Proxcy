@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
@@ -131,6 +132,8 @@ const websiteLd = {
   },
 };
 
+const googleAnalyticsId = "G-PD16L9JPLH";
+
 const devServiceWorkerCleanupScript =
   process.env.NODE_ENV === "production"
     ? null
@@ -174,6 +177,19 @@ export default function RootLayout({
       className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${googleAnalyticsId}`}
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', '${googleAnalyticsId}');
+          `}
+        </Script>
         {devServiceWorkerCleanupScript ? (
           <script
             dangerouslySetInnerHTML={{ __html: devServiceWorkerCleanupScript }}
