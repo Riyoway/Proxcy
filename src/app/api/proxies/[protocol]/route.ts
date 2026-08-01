@@ -5,7 +5,8 @@ import { REPO_RAW } from "@/lib/proxy-fetcher";
  * `<protocol>.txt` files (one `ip:port` per line) with CORS enabled, so clients
  * that want a flat list instead of the /api/proxies JSON can consume them directly.
  */
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const FILES: Record<string, string> = {
   http: "http.txt",
@@ -25,7 +26,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
     return new Response("Unknown protocol. Use http, socks4, socks5, or all.", { status: 404 });
   }
   try {
-    const upstream = await fetch(`${REPO_RAW}/${file}`, { next: { revalidate: 60 } });
+    const upstream = await fetch(`${REPO_RAW}/${file}`, { cache: "no-store" });
     if (!upstream.ok) {
       return new Response("Upstream data unavailable", { status: 502 });
     }
@@ -33,7 +34,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pro
       status: 200,
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
-        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "CDN-Cache-Control": "no-store",
+        "Vercel-CDN-Cache-Control": "no-store",
         "Access-Control-Allow-Origin": "*",
       },
     });

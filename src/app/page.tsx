@@ -192,7 +192,7 @@ const ProxyDashboard: React.FC = () => {
   const fetchProxies = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("/api/proxies", { cache: "no-store" });
+      const response = await fetch(`/api/proxies?t=${Date.now()}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch");
       const json = await response.json();
       const proxies: ProxyRecord[] = json.proxies ?? [];
@@ -214,6 +214,27 @@ const ProxyDashboard: React.FC = () => {
     }, 180000); // 3 minutes — matches checker cycle
 
     return () => clearInterval(intervalId);
+  }, [fetchProxies]);
+
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        fetchProxies();
+      }
+    };
+    const refreshFromPageCache = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        fetchProxies();
+      }
+    };
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("pageshow", refreshFromPageCache);
+
+    return () => {
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("pageshow", refreshFromPageCache);
+    };
   }, [fetchProxies]);
 
   const handleSort = useCallback(

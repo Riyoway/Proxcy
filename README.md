@@ -38,7 +38,7 @@ To point Proxcy at a different source, edit `REPO_RAW` in [`src/lib/proxy-fetche
 
 ## API
 
-No authentication, CORS enabled (`Access-Control-Allow-Origin: *`), cached ~60s. Full docs at [`/api`](https://proxcy.riyo.me/api).
+No authentication, CORS enabled (`Access-Control-Allow-Origin: *`), uncached for fresh upstream data. Full docs at [`/api`](https://proxcy.riyo.me/api).
 
 | Endpoint | Returns |
 |----------|---------|

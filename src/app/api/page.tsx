@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Terminal } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { siteConfig, absoluteUrl } from "@/lib/site-config";
 
 const endpoint = absoluteUrl("/api/proxies");
@@ -66,7 +65,7 @@ const faqs = [
   {
     question: "How fresh is the data?",
     answer:
-      "The endpoint mirrors the live dataset and is cached for about 60 seconds with stale-while-revalidate, so responses are fast and never more than roughly a minute behind the source.",
+      "The endpoint mirrors the live dataset without CDN caching, so each request checks the latest upstream data.",
   },
   {
     question: "What proxy protocols are included?",
@@ -190,7 +189,7 @@ export default function ApiDocsPage() {
             <span className="text-foreground">CORS enabled</span> — call from the browser
           </li>
           <li className="rounded-lg border border-border/50 bg-card/50 px-3 py-2">
-            <span className="text-foreground">~60s cache</span> — fast, near-live data
+            <span className="text-foreground">No CDN cache</span> — latest upstream data
           </li>
         </ul>
       </section>
@@ -215,7 +214,7 @@ export default function ApiDocsPage() {
         <p className="mt-3 text-sm text-muted-foreground">
           Prefer a flat text list over JSON? These endpoints return one{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-sm">ip:port</code> per line as{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code>, also CORS-enabled and cached.
+          <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code>, also CORS-enabled and uncached.
         </p>
         <div className="mt-4 overflow-x-auto rounded-xl border border-border/60">
           <table className="w-full text-left text-sm">
