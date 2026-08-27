@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { normalizeCountryName } from "@/lib/country";
+import { REPO_RAW } from "@/lib/proxy-fetcher";
 import { CountUp } from "@/components/site/count-up";
 
 const ProxyMapView = dynamic(() => import("@/components/proxy-map-view").then((module) => module.ProxyMapView), {
@@ -192,7 +193,7 @@ const ProxyDashboard: React.FC = () => {
   const fetchProxies = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/proxies?t=${Date.now()}`, { cache: "no-store" });
+      const response = await fetch(`${REPO_RAW}/data.json`, { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch");
       const json = await response.json();
       const proxies: ProxyRecord[] = json.proxies ?? [];

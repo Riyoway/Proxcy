@@ -18,7 +18,7 @@ Proxcy does not collect, test, or store any proxies itself. It only reads the da
 
 ## Data source
 
-All proxy data lives in a **separate repository**, [Riyoway/proxies](https://github.com/Riyoway/proxies), which a collector updates automatically. This repo (Proxcy) is just the frontend plus a thin pass-through API.
+All proxy data lives in a **separate repository**, [Riyoway/proxies](https://github.com/Riyoway/proxies), which a collector updates automatically. This repo (Proxcy) is just the frontend plus compatibility redirects for the old API URLs.
 
 The dashboard reads these files straight from GitHub raw:
 
@@ -38,7 +38,7 @@ To point Proxcy at a different source, edit `REPO_RAW` in [`src/lib/proxy-fetche
 
 ## API
 
-No authentication, CORS enabled (`Access-Control-Allow-Origin: *`), uncached for fresh upstream data. Full docs at [`/api`](https://proxcy.riyo.me/api).
+The dashboard reads the dataset directly from GitHub Raw. The same-origin endpoints remain available as cached redirects to the raw files, so Vercel does not relay the multi-megabyte responses. Full docs at [`/api`](https://proxcy.riyo.me/api).
 
 | Endpoint | Returns |
 |----------|---------|
@@ -49,7 +49,7 @@ No authentication, CORS enabled (`Access-Control-Allow-Origin: *`), uncached for
 | `GET /api/proxies/all` | All valid proxies (`protocol://ip:port`) |
 
 ```bash
-curl https://proxcy.riyo.me/api/proxies/socks5
+curl -L https://proxcy.riyo.me/api/proxies/socks5
 ```
 
 ---

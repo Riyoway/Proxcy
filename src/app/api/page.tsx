@@ -7,7 +7,7 @@ const endpoint = absoluteUrl("/api/proxies");
 
 const title = "Proxcy API";
 const description =
-  "Free, no-auth JSON API for live proxies. GET /api/proxies returns every checked HTTP, SOCKS4, and SOCKS5 proxy with country, latency, protocol, anonymity, and Google reachability.";
+  "Free JSON access to live proxies. GET /api/proxies redirects to the GitHub Raw dataset containing checked HTTP, SOCKS4, and SOCKS5 proxies with country, latency, protocol, anonymity, and Google reachability.";
 
 export const metadata: Metadata = {
   title,
@@ -55,7 +55,7 @@ const faqs = [
   {
     question: "Is the Proxcy API free?",
     answer:
-      "Yes. The API is free and requires no API key or authentication. Send a GET request to /api/proxies and you get the full dataset as JSON.",
+      "Yes. The API is free and requires no API key. Send a GET request to /api/proxies and follow its redirect to get the full dataset as JSON.",
   },
   {
     question: "Can I call the API from a browser?",
@@ -65,7 +65,7 @@ const faqs = [
   {
     question: "How fresh is the data?",
     answer:
-      "The endpoint mirrors the live dataset without CDN caching, so each request checks the latest upstream data.",
+      "The endpoint redirects to the live GitHub Raw dataset. GitHub may cache the raw file for a few minutes while the collector updates it.",
   },
   {
     question: "What proxy protocols are included?",
@@ -105,7 +105,7 @@ const faqLd = {
   })),
 };
 
-const curlExample = `curl ${endpoint}`;
+const curlExample = `curl -L ${endpoint}`;
 const fetchExample = `const res = await fetch("${endpoint}");
 const { proxies } = await res.json();
 // proxies: Array<{ ip, port, protocol, speed_ms, ... }>`;
@@ -166,11 +166,11 @@ export default function ApiDocsPage() {
         <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Proxcy API</h1>
         {/* Answer-first for featured snippets and AI citation. */}
         <p className="mt-4 text-lg text-muted-foreground">
-          The Proxcy API is a free, no-authentication JSON endpoint that returns the same live proxy
-          dataset the dashboard uses. Send a <code className="rounded bg-muted px-1 py-0.5 text-sm">GET</code>{" "}
-          request to <code className="rounded bg-muted px-1 py-0.5 text-sm">/api/proxies</code> and you
-          get every checked HTTP, SOCKS4, and SOCKS5 proxy — each with country, latency,
-          protocol, anonymity level, and Google reachability.
+          The Proxcy API redirects to the GitHub Raw dataset used by the dashboard. Send a{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-sm">GET</code> request to{" "}
+          <code className="rounded bg-muted px-1 py-0.5 text-sm">/api/proxies</code> and follow the
+          redirect to get every checked HTTP, SOCKS4, and SOCKS5 proxy — each with country,
+          latency, protocol, anonymity level, and Google reachability.
         </p>
       </header>
 
@@ -189,7 +189,7 @@ export default function ApiDocsPage() {
             <span className="text-foreground">CORS enabled</span> — call from the browser
           </li>
           <li className="rounded-lg border border-border/50 bg-card/50 px-3 py-2">
-            <span className="text-foreground">No CDN cache</span> — latest upstream data
+            <span className="text-foreground">Cached redirect</span> — large payload stays off Vercel
           </li>
         </ul>
       </section>
@@ -212,9 +212,9 @@ export default function ApiDocsPage() {
       <section className="mt-10">
         <h2 className="text-xl font-semibold tracking-tight">Raw lists (per protocol)</h2>
         <p className="mt-3 text-sm text-muted-foreground">
-          Prefer a flat text list over JSON? These endpoints return one{" "}
+          Prefer a flat text list over JSON? These endpoints redirect to GitHub Raw, which returns one{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-sm">ip:port</code> per line as{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code>, also CORS-enabled and uncached.
+          <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code> with CORS enabled.
         </p>
         <div className="mt-4 overflow-x-auto rounded-xl border border-border/60">
           <table className="w-full text-left text-sm">
@@ -240,7 +240,7 @@ export default function ApiDocsPage() {
           </table>
         </div>
         <div className="mt-3">
-          <CodeBlock code={`curl ${absoluteUrl("/api/proxies/socks5")}`} />
+          <CodeBlock code={`curl -L ${absoluteUrl("/api/proxies/socks5")}`} />
         </div>
       </section>
 
