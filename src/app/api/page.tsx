@@ -60,7 +60,7 @@ const faqs = [
   {
     question: "Can I call the API from a browser?",
     answer:
-      "Yes. The endpoint sends Access-Control-Allow-Origin: *, so it works in client-side JavaScript from any origin without a CORS proxy.",
+      "Yes. The endpoint redirects to GitHub Raw, which serves the dataset for browser clients without requiring a separate CORS proxy.",
   },
   {
     question: "How fresh is the data?",
@@ -186,10 +186,10 @@ export default function ApiDocsPage() {
             <span className="text-foreground">No auth</span> — no API key needed
           </li>
           <li className="rounded-lg border border-border/50 bg-card/50 px-3 py-2">
-            <span className="text-foreground">CORS enabled</span> — call from the browser
+            <span className="text-foreground">Browser-ready</span> — no CORS proxy needed
           </li>
           <li className="rounded-lg border border-border/50 bg-card/50 px-3 py-2">
-            <span className="text-foreground">Cached redirect</span> — large payload stays off Vercel
+            <span className="text-foreground">Static redirect</span> — GitHub Raw serves the payload
           </li>
         </ul>
       </section>
@@ -214,7 +214,7 @@ export default function ApiDocsPage() {
         <p className="mt-3 text-sm text-muted-foreground">
           Prefer a flat text list over JSON? These endpoints redirect to GitHub Raw, which returns one{" "}
           <code className="rounded bg-muted px-1 py-0.5 text-sm">ip:port</code> per line as{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code> with CORS enabled.
+          <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code>.
         </p>
         <div className="mt-4 overflow-x-auto rounded-xl border border-border/60">
           <table className="w-full text-left text-sm">
