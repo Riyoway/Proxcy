@@ -1,13 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Terminal } from "lucide-react";
+import { ArrowRight, ExternalLink, Terminal } from "lucide-react";
 import { siteConfig, absoluteUrl } from "@/lib/site-config";
 
 const endpoint = absoluteUrl("/api/proxies");
 
+const rawEndpoints = [
+  { path: "/api/proxies/http", label: "HTTP proxies", format: "ip:port per line" },
+  { path: "/api/proxies/socks4", label: "SOCKS4 proxies", format: "ip:port per line" },
+  { path: "/api/proxies/socks5", label: "SOCKS5 proxies", format: "ip:port per line" },
+  { path: "/api/proxies/all", label: "All valid proxies", format: "protocol://ip:port per line" },
+] as const;
+
 const title = "Proxcy API";
 const description =
-  "Free JSON access to checked HTTP, SOCKS4, and SOCKS5 proxies. Proxcy serves the latest checker snapshot directly from Cloudflare Pages static assets with country, latency, protocol, anonymity, and Google reachability metadata.";
+  "Free JSON and raw-list access to checked HTTP, SOCKS4, and SOCKS5 proxies. Proxcy serves the latest checker snapshot directly from Cloudflare static assets with country, latency, protocol, anonymity, and Google reachability metadata.";
 
 export const metadata: Metadata = {
   title,
@@ -55,22 +62,22 @@ const faqs = [
   {
     question: "Is the Proxcy API free?",
     answer:
-      "Yes. The API is free and requires no API key. Send a GET request to /api/proxies to get the full dataset as JSON.",
+      "Yes. The API is free and requires no API key. Send a GET request to /api/proxies to get the full dataset as JSON, or use one of the protocol-specific raw endpoints.",
   },
   {
     question: "Can I call the API from a browser?",
     answer:
-      "Yes. The API is backed by Cloudflare Pages static assets and includes CORS headers for browser clients.",
+      "Yes. The API is backed by Cloudflare static assets and includes CORS headers for browser clients.",
   },
   {
     question: "How fresh is the data?",
     answer:
-      "The proxy checker republishes a checked snapshot roughly once per day. The resulting files are committed to Proxcy and deployed by Cloudflare Pages as static assets.",
+      "The proxy checker republishes a checked snapshot roughly once per day. The resulting files are committed to Proxcy and deployed as static assets.",
   },
   {
     question: "What proxy protocols are included?",
     answer:
-      "HTTP, SOCKS4, and SOCKS5. Each record includes the protocol, latency, country, anonymity level, and whether the proxy can reach Google.",
+      "HTTP, SOCKS4, and SOCKS5. Each JSON record includes the protocol, latency, country, anonymity level, and whether the proxy can reach Google.",
   },
 ];
 
@@ -166,7 +173,7 @@ export default function ApiDocsPage() {
         <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Proxcy API</h1>
         <p className="mt-4 text-lg text-muted-foreground">
           The Proxcy API serves the same checked snapshot used by the dashboard directly from{" "}
-          Cloudflare Pages. Send a <code className="rounded bg-muted px-1 py-0.5 text-sm">GET</code>{" "}
+          Cloudflare static assets. Send a <code className="rounded bg-muted px-1 py-0.5 text-sm">GET</code>{" "}
           request to <code className="rounded bg-muted px-1 py-0.5 text-sm">/api/proxies</code> to get
           every checked HTTP, SOCKS4, and SOCKS5 proxy — each with country, latency, protocol,
           anonymity level, and Google reachability.
@@ -174,12 +181,16 @@ export default function ApiDocsPage() {
       </header>
 
       <section className="mt-8">
-        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/70 px-4 py-3">
+        <Link
+          href="/api/proxies"
+          className="flex items-center gap-2 rounded-xl border border-border/60 bg-card/70 px-4 py-3 transition-colors hover:bg-muted/50"
+        >
           <span className="rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-semibold text-emerald-400">
             GET
           </span>
-          <code className="truncate text-sm text-foreground">{endpoint}</code>
-        </div>
+          <code className="min-w-0 flex-1 truncate text-sm text-foreground">{endpoint}</code>
+          <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        </Link>
         <ul className="mt-4 grid grid-cols-1 gap-2 text-sm text-muted-foreground sm:grid-cols-3">
           <li className="rounded-lg border border-border/50 bg-card/50 px-3 py-2">
             <span className="text-foreground">No auth</span> — no API key needed
@@ -213,7 +224,8 @@ export default function ApiDocsPage() {
         <p className="mt-3 text-sm text-muted-foreground">
           Prefer a flat text list over JSON? These endpoints are mapped to static files deployed with
           Proxcy and return one <code className="rounded bg-muted px-1 py-0.5 text-sm">ip:port</code>{" "}
-          per line as <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code>.
+          per line as <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code>. Click an
+          endpoint below to open it directly.
         </p>
         <div className="mt-4 overflow-x-auto rounded-xl border border-border/60">
           <table className="w-full text-left text-sm">
@@ -224,15 +236,20 @@ export default function ApiDocsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/50">
-              {[
-                ["/api/proxies/http", "HTTP proxies"],
-                ["/api/proxies/socks4", "SOCKS4 proxies"],
-                ["/api/proxies/socks5", "SOCKS5 proxies"],
-                ["/api/proxies/all", "All valid proxies (protocol://ip:port)"],
-              ].map(([path, desc]) => (
+              {rawEndpoints.map(({ path, label, format }) => (
                 <tr key={path}>
-                  <td className="px-3 py-2 font-mono text-xs text-foreground">{path}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{desc}</td>
+                  <td className="px-3 py-2">
+                    <Link
+                      href={path}
+                      className="inline-flex items-center gap-1.5 font-mono text-xs text-foreground underline-offset-4 hover:underline"
+                    >
+                      {absoluteUrl(path)}
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    </Link>
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {label} — {format}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -296,7 +313,7 @@ export default function ApiDocsPage() {
         <div>
           <h2 className="text-base font-semibold">Explore the data visually</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Filter the same proxies by country, latency, and protocol in the dashboard, or see common{" "}
+            Filter the same static snapshot by country, latency, and protocol in the dashboard, or see common{" "}
             <Link href="/use-cases" className="underline underline-offset-2 hover:text-foreground">
               proxy use cases
             </Link>
