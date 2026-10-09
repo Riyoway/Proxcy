@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
 import { siteConfig } from "@/lib/site-config";
 
+export const dynamic = "force-static";
+
 /**
  * Allow major search and AI crawlers explicitly so Proxcy is citation-ready
  * for ChatGPT, Perplexity, Google AI Overview, Bing Copilot, and Claude.
