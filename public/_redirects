@@ -1,5 +1,5 @@
-/api/proxies https://raw.githubusercontent.com/Riyoway/proxies/master/data.json 307
-/api/proxies/http https://raw.githubusercontent.com/Riyoway/proxies/master/http.txt 307
-/api/proxies/socks4 https://raw.githubusercontent.com/Riyoway/proxies/master/socks4.txt 307
-/api/proxies/socks5 https://raw.githubusercontent.com/Riyoway/proxies/master/socks5.txt 307
-/api/proxies/all https://raw.githubusercontent.com/Riyoway/proxies/master/all.txt 307
+/api/proxies /data/data.json 200
+/api/proxies/http /data/http.txt 200
+/api/proxies/socks4 /data/socks4.txt 200
+/api/proxies/socks5 /data/socks5.txt 200
+/api/proxies/all /data/all.txt 200
