@@ -1,8 +1,8 @@
 # Proxcy
 
-A dashboard that turns the raw proxy lists from **[Riyoway/proxies](https://github.com/Riyoway/proxies)** into a fast, filterable, visual interface.
+A dashboard for the proxy results produced by the private **Riyoway/proxy-collector** checker.
 
-Proxcy does not collect, test, or store any proxies itself. It only reads the data published by the [`proxies`](https://github.com/Riyoway/proxies) repo (via GitHub Raw) and presents it as a searchable table, an interactive map, and a small API. No database, no backend state.
+The checker publishes its results to both **Riyoway/Proxies** (the public GitHub mirror) and this repository under `public/data/`. Cloudflare Pages serves the copy bundled with Proxcy directly as static assets, so normal dashboard/API requests do not need a Function, Worker, or GitHub Raw fetch.
 
 **Live:** https://proxcy.riyo.me
 
@@ -12,25 +12,29 @@ Proxcy does not collect, test, or store any proxies itself. It only reads the da
 
 - **Filterable table** — filter by country, protocol (HTTP / SOCKS4 / SOCKS5), latency, anonymity, and Google reachability; search, sort, paginate, and export to CSV. Right-click a row for quick actions.
 - **Interactive map** — 2D (Mercator) and 3D globe. Country markers are sized by proxy count and shaded by median latency, with a ring for Google-reachability rate and animated request flows.
-- **API** — the same dataset exposed through same-origin compatibility redirects (see below).
+- **Static API** — exposes the same checked results through `/api/proxies*` without a server-side Function.
 
 ---
 
-## Data source
+## Data pipeline
 
-All proxy data lives in a **separate repository**, [Riyoway/proxies](https://github.com/Riyoway/proxies), which a collector updates automatically. This repo (Proxcy) is just the static frontend plus compatibility redirects for the old API URLs.
+`Riyoway/proxy-collector` checks the proxy sources and writes the generated result files to two destinations:
 
-The dashboard reads these files straight from GitHub Raw:
+1. `Riyoway/Proxies` — existing public GitHub mirror.
+2. `Riyoway/Proxcy/public/data/` — static copy deployed with this site.
 
-| File | Contents |
+The Pages deployment serves these files directly:
+
+| Static file | Contents |
 |------|----------|
-| `data.json` | Full metadata (ip, port, protocol, speed, country, anonymity, Google access) — powers the dashboard |
-| `http.txt` | HTTP proxies (`ip:port` per line) |
-| `socks4.txt` | SOCKS4 proxies |
-| `socks5.txt` | SOCKS5 proxies |
-| `all.txt` | All valid proxies (`protocol://ip:port`) |
+| `/data/data.json` | Full metadata (ip, port, protocol, speed, country, anonymity, Google access) — powers the dashboard |
+| `/data/http.txt` | HTTP proxies (`ip:port` per line) |
+| `/data/socks4.txt` | SOCKS4 proxies |
+| `/data/socks5.txt` | SOCKS5 proxies |
+| `/data/all.txt` | All valid proxies (`protocol://ip:port`) |
+| `/data/history.json` | Checker cycle history |
 
-To point Proxcy at a different source, edit `REPO_RAW` in [`src/lib/proxy-fetcher.ts`](src/lib/proxy-fetcher.ts) and the targets in [`public/_redirects`](public/_redirects).
+The dashboard reads `/data/data.json` from the same Cloudflare Pages deployment.
 
 > Proxy locations on the map are approximate — the dataset has no coordinates, so proxies are grouped at their country's centroid.
 
@@ -38,25 +42,27 @@ To point Proxcy at a different source, edit `REPO_RAW` in [`src/lib/proxy-fetche
 
 ## API
 
-The dashboard reads the dataset directly from GitHub Raw. The same-origin endpoints remain available as Cloudflare Pages static redirects, so the multi-megabyte payload is served by GitHub Raw instead of being relayed through the frontend deployment. Full docs at [`/api`](https://proxcy.riyo.me/api).
+The API is implemented as Cloudflare Pages **200 rewrites** to the static result files. The client keeps the `/api/proxies*` URL while Pages returns the matching static asset. No runtime Function is involved.
 
-| Endpoint | Returns |
-|----------|---------|
-| `GET /api/proxies` | Full metadata as JSON: `{ "proxies": [ ... ] }` |
-| `GET /api/proxies/http` | HTTP proxies, `ip:port` per line (`text/plain`) |
-| `GET /api/proxies/socks4` | SOCKS4 proxies |
-| `GET /api/proxies/socks5` | SOCKS5 proxies |
-| `GET /api/proxies/all` | All valid proxies (`protocol://ip:port`) |
+| Endpoint | Static source | Returns |
+|----------|---------------|---------|
+| `GET /api/proxies` | `/data/data.json` | Full metadata as JSON: `{ "proxies": [ ... ] }` |
+| `GET /api/proxies/http` | `/data/http.txt` | HTTP proxies, `ip:port` per line (`text/plain`) |
+| `GET /api/proxies/socks4` | `/data/socks4.txt` | SOCKS4 proxies |
+| `GET /api/proxies/socks5` | `/data/socks5.txt` | SOCKS5 proxies |
+| `GET /api/proxies/all` | `/data/all.txt` | All valid proxies (`protocol://ip:port`) |
 
 ```bash
-curl -L https://proxcy.riyo.me/api/proxies/socks5
+curl https://proxcy.riyo.me/api/proxies/socks5
 ```
+
+Full docs: https://proxcy.riyo.me/api
 
 ---
 
 ## Tech stack
 
-Next.js (App Router, static export) · TypeScript · Tailwind CSS · `d3-geo` + `world-atlas` (map) · `lucide-react`. Deployed on Cloudflare Pages; data served from GitHub Raw.
+Next.js (App Router, static export) · TypeScript · Tailwind CSS · `d3-geo` + `world-atlas` (map) · `lucide-react`. Deployed on Cloudflare Pages with proxy data served as static assets.
 
 ---
 
@@ -68,7 +74,7 @@ npm run dev
 # → http://localhost:3000
 ```
 
-To verify the production static export locally:
+The checker normally creates `public/data/`. To verify the production static export after data has been mirrored:
 
 ```bash
 npm run build
@@ -87,8 +93,9 @@ Create a Cloudflare Pages project from this repository with:
 
 The repository includes:
 
-- [`public/_headers`](public/_headers) for response and cache headers
-- [`public/_redirects`](public/_redirects) for the compatibility API redirects
+- [`public/_headers`](public/_headers) for response and cache headers.
+- [`public/_redirects`](public/_redirects) for static API rewrites.
+- `public/data/` for the checker-generated deployable dataset.
 
 Optional configuration:
 
@@ -97,6 +104,18 @@ Optional configuration:
 | `NEXT_PUBLIC_SITE_URL` | Canonical / Open Graph base URL (defaults to `https://proxcy.riyo.me`) |
 
 After the Pages deployment is healthy, attach `proxcy.riyo.me` as the custom domain and remove it from the old Vercel project.
+
+---
+
+## Checker publishing configuration
+
+The checker keeps the existing `Riyoway/Proxies` push and additionally mirrors the same results into this repository. Its local `.env.local` should include the Proxcy target:
+
+```env
+PROXCY_SITE_REPO_URL=git@github.com:Riyoway/Proxcy.git
+PROXCY_SITE_BRANCH=main
+PROXCY_SITE_OUTPUT_DIR=public/data
+```
 
 ---
 
