@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 import { absoluteUrl } from "@/lib/site-config";
 import { useCaseSlugs } from "@/lib/use-cases";
 
+export const dynamic = "force-static";
+
 const routes: Array<{
   path: string;
   changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
