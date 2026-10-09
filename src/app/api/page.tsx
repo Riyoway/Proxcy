@@ -7,7 +7,7 @@ const endpoint = absoluteUrl("/api/proxies");
 
 const title = "Proxcy API";
 const description =
-  "Free JSON access to live proxies. GET /api/proxies redirects to the GitHub Raw dataset containing checked HTTP, SOCKS4, and SOCKS5 proxies with country, latency, protocol, anonymity, and Google reachability.";
+  "Free JSON access to checked HTTP, SOCKS4, and SOCKS5 proxies. Proxcy serves the latest checker snapshot directly from Cloudflare Pages static assets with country, latency, protocol, anonymity, and Google reachability metadata.";
 
 export const metadata: Metadata = {
   title,
@@ -55,17 +55,17 @@ const faqs = [
   {
     question: "Is the Proxcy API free?",
     answer:
-      "Yes. The API is free and requires no API key. Send a GET request to /api/proxies and follow its redirect to get the full dataset as JSON.",
+      "Yes. The API is free and requires no API key. Send a GET request to /api/proxies to get the full dataset as JSON.",
   },
   {
     question: "Can I call the API from a browser?",
     answer:
-      "Yes. The endpoint redirects to GitHub Raw, which serves the dataset for browser clients without requiring a separate CORS proxy.",
+      "Yes. The API is backed by Cloudflare Pages static assets and includes CORS headers for browser clients.",
   },
   {
     question: "How fresh is the data?",
     answer:
-      "The endpoint redirects to the live GitHub Raw dataset. GitHub may cache the raw file for a few minutes while the collector updates it.",
+      "The proxy checker republishes a checked snapshot roughly once per day. The resulting files are committed to Proxcy and deployed by Cloudflare Pages as static assets.",
   },
   {
     question: "What proxy protocols are included?",
@@ -105,7 +105,7 @@ const faqLd = {
   })),
 };
 
-const curlExample = `curl -L ${endpoint}`;
+const curlExample = `curl ${endpoint}`;
 const fetchExample = `const res = await fetch("${endpoint}");
 const { proxies } = await res.json();
 // proxies: Array<{ ip, port, protocol, speed_ms, ... }>`;
@@ -164,13 +164,12 @@ export default function ApiDocsPage() {
 
       <header>
         <h1 className="text-3xl font-bold tracking-tight md:text-4xl">Proxcy API</h1>
-        {/* Answer-first for featured snippets and AI citation. */}
         <p className="mt-4 text-lg text-muted-foreground">
-          The Proxcy API redirects to the GitHub Raw dataset used by the dashboard. Send a{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-sm">GET</code> request to{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-sm">/api/proxies</code> and follow the
-          redirect to get every checked HTTP, SOCKS4, and SOCKS5 proxy — each with country,
-          latency, protocol, anonymity level, and Google reachability.
+          The Proxcy API serves the same checked snapshot used by the dashboard directly from{" "}
+          Cloudflare Pages. Send a <code className="rounded bg-muted px-1 py-0.5 text-sm">GET</code>{" "}
+          request to <code className="rounded bg-muted px-1 py-0.5 text-sm">/api/proxies</code> to get
+          every checked HTTP, SOCKS4, and SOCKS5 proxy — each with country, latency, protocol,
+          anonymity level, and Google reachability.
         </p>
       </header>
 
@@ -186,10 +185,10 @@ export default function ApiDocsPage() {
             <span className="text-foreground">No auth</span> — no API key needed
           </li>
           <li className="rounded-lg border border-border/50 bg-card/50 px-3 py-2">
-            <span className="text-foreground">Browser-ready</span> — no CORS proxy needed
+            <span className="text-foreground">CORS enabled</span> — browser-ready
           </li>
           <li className="rounded-lg border border-border/50 bg-card/50 px-3 py-2">
-            <span className="text-foreground">Static redirect</span> — GitHub Raw serves the payload
+            <span className="text-foreground">Static delivery</span> — no runtime Function
           </li>
         </ul>
       </section>
@@ -212,9 +211,9 @@ export default function ApiDocsPage() {
       <section className="mt-10">
         <h2 className="text-xl font-semibold tracking-tight">Raw lists (per protocol)</h2>
         <p className="mt-3 text-sm text-muted-foreground">
-          Prefer a flat text list over JSON? These endpoints redirect to GitHub Raw, which returns one{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-sm">ip:port</code> per line as{" "}
-          <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code>.
+          Prefer a flat text list over JSON? These endpoints are mapped to static files deployed with
+          Proxcy and return one <code className="rounded bg-muted px-1 py-0.5 text-sm">ip:port</code>{" "}
+          per line as <code className="rounded bg-muted px-1 py-0.5 text-sm">text/plain</code>.
         </p>
         <div className="mt-4 overflow-x-auto rounded-xl border border-border/60">
           <table className="w-full text-left text-sm">
@@ -240,7 +239,7 @@ export default function ApiDocsPage() {
           </table>
         </div>
         <div className="mt-3">
-          <CodeBlock code={`curl -L ${absoluteUrl("/api/proxies/socks5")}`} />
+          <CodeBlock code={`curl ${absoluteUrl("/api/proxies/socks5")}`} />
         </div>
       </section>
 
