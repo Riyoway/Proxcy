@@ -1,3 +1,5 @@
-// Source of the proxy dataset. The dashboard reads GitHub Raw directly so
-// Cloudflare Pages only serves the static frontend and compatibility redirects.
-export const REPO_RAW = "https://raw.githubusercontent.com/Riyoway/proxies/master";
+// Source of the proxy dataset bundled with the Cloudflare Pages deployment.
+// proxy-collector mirrors the latest checked results into public/data.
+// Keeping this as a relative path means the browser reads directly from the
+// same Pages deployment with no Function, Worker, or GitHub Raw request.
+export const REPO_RAW = "/data";
